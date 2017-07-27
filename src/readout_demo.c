@@ -8,6 +8,11 @@
 
 #include "dpp_qdc.h"
 
+// int	gHandle; /* CAEN library handle */
+// int      tHandle[8]; /* CAEN library handle */
+
+
+
 void usage() {
   printf("Syntax : readout_demo <configuration file>\n");
   //   printf("acquisition_runtime must be an integer > 0 and < %d\n", LONG_MAX);
@@ -16,6 +21,8 @@ void usage() {
 /* ============================================================================== */
 /* main                                                                           */
 /* ============================================================================== */
+
+
 int main(int argc, char* argv[])
 {
   int ret;
@@ -57,6 +64,7 @@ int main(int argc, char* argv[])
     running = 0;
   }
   
+//   printf("gHandle = %d\n",gHandle);
   /* Init time global variables */
   gCurrTime      = get_time();
   gRunStartTime  = gCurrTime;

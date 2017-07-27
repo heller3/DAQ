@@ -1,10 +1,10 @@
 /******************************************************************************
-* 
-* CAEN SpA - Front End Division
-* Via Vetraia, 11 - 55049 - Viareggio ITALY
-* +390594388398 - www.caen.it
-*
-******************************************************************************/
+ * 
+ * CAEN SpA - Front End Division
+ * Via Vetraia, 11 - 55049 - Viareggio ITALY
+ * +390594388398 - www.caen.it
+ *
+ ******************************************************************************/
 
 #ifndef _DPP_QDC_H
 #define _DPP_QDC_H
@@ -38,7 +38,7 @@
 #define HISTO_NBIN    4096
 
 #define MAX_AGGR_NUM_PER_BLOCK_TRANSFER   1023 /* MAX 1023 */ 
-
+#define MAX_EVENTS_XFER   255
 
 #define ENABLE_TEST_PULSE 1
 
@@ -48,39 +48,95 @@
 #define CHARGE_LLD_CUT 0
 #define CHARGE_ULD_CUT (HISTO_NBIN-1)
 
+//****************************************************************************
+// Some register addresses
+//****************************************************************************
+#define ADDR_GLOBAL_TRG_MASK     0x810C
+#define ADDR_TRG_OUT_MASK        0x8110
+#define ADDR_FRONT_PANEL_IO_SET  0x811C
+#define ADDR_ACQUISITION_MODE    0x8100
+#define ADDR_EXT_TRG_INHIBIT     0x817C
+#define ADDR_RUN_DELAY           0x8170
+#define ADDR_FORCE_SYNC			 0x813C
+#define ADDR_RELOAD_PLL			 0xEF34
+
+
+//****************************************************************************
+// Run Modes
+//****************************************************************************
+// start on software command
+#define RUN_START_ON_SOFTWARE_COMMAND     0xC
+// start on S-IN level (logical high = run; logical low = stop)
+#define RUN_START_ON_SIN_LEVEL            0xD
+// start on first TRG-IN or Software Trigger
+#define RUN_START_ON_TRGIN_RISING_EDGE    0xE
+// start on LVDS I/O level
+#define RUN_START_ON_LVDS_IO              0xF
+
+
 /* Data structures */
 
 typedef struct 
 {
-    uint32_t ConnectionType;
-    uint32_t ConnectionLinkNum;
-    uint32_t ConnectionConetNode;
-    uint32_t ConnectionVMEBaseAddress;
-	uint32_t RecordLength;   
-	uint32_t PreTrigger;     
-	uint32_t ActiveChannel;
-	uint32_t GateWidth[8];
-	uint32_t PreGate;
-	uint32_t ChargeSensitivity;
-	uint32_t FixedBaseline;
-	uint32_t BaselineMode;
-    uint32_t TrgMode;
-    uint32_t TrgSmoothing;
-    uint32_t TrgHoldOff;
-    uint32_t TriggerThreshold[64];
-	uint32_t DCoffset[8];
-	uint32_t AcqMode;
-	uint32_t NevAggr;
-    uint32_t PulsePol;
-    uint32_t EnChargePed;
-    uint32_t SaveList;
-    uint32_t DisTrigHist;
-    uint32_t DisSelfTrigger;
-    uint32_t EnTestPulses;
-    uint32_t TestPulsesRate;
-    uint32_t DefaultTriggerThr;
-    uint32_t EnableExtendedTimeStamp;
-	uint64_t ChannelTriggerMask;
+  // V1740D
+  uint32_t ConnectionType;
+  uint32_t ConnectionLinkNum;
+  uint32_t ConnectionConetNode;
+  uint32_t ConnectionVMEBaseAddress;
+  uint32_t RecordLength;   
+  uint32_t PreTrigger;     
+  uint32_t ActiveChannel;
+  uint32_t GateWidth[8];
+  uint32_t PreGate;
+  uint32_t ChargeSensitivity;
+  uint32_t FixedBaseline;
+  uint32_t BaselineMode;
+  uint32_t TrgMode;
+  uint32_t TrgSmoothing;
+  uint32_t TrgHoldOff;
+  uint32_t TriggerThreshold[64];
+  uint32_t DCoffset[8];
+  uint32_t AcqMode;
+  uint32_t NevAggr;
+  uint32_t PulsePol;
+  uint32_t EnChargePed;
+  uint32_t SaveList;
+  uint32_t DisTrigHist;
+  uint32_t DisSelfTrigger;
+  uint32_t EnTestPulses;
+  uint32_t TestPulsesRate;
+  uint32_t DefaultTriggerThr;
+  uint32_t EnableExtendedTimeStamp;
+  uint64_t ChannelTriggerMask;
+  
+  //V1742
+  uint32_t NumOfV1742;                   //number of V1742 digitizers in the system - NB max is 8
+  uint32_t registerWritesCounter;
+  uint32_t v1742_TriggerEdge;   
+  uint32_t v1742_RecordLength;  
+  uint32_t v1742_MatchingWindow;
+  uint32_t v1742_IOlevel;       
+  uint32_t v1742_TestPattern;   
+  uint32_t v1742_DRS4Frequency; 
+  uint32_t v1742_StartMode;     
+  uint32_t v1742_EnableLog;
+  
+  uint32_t v1742_ConnectionType[8];
+  uint32_t v1742_LinkNum[8];
+  uint32_t v1742_ConetNode[8];
+  uint32_t v1742_BaseAddress[8];  
+  uint32_t v1742_FastTriggerThreshold[8];
+  uint32_t v1742_FastTriggerOffset[8];   
+  uint32_t v1742_DCoffset[8];            
+  uint32_t v1742_ChannelThreshold[8];    
+  uint32_t v1742_TRThreshold[8];         
+  uint32_t v1742_ChannelPulseEdge[8];    
+  uint32_t v1742_PostTrigger[8]; 
+  
+  uint32_t RegisterWriteBoard[64];                           // no more than 64 register writes, sorry...
+  uint32_t RegisterWriteAddr[64];                           // no more than 64 register writes, sorry...
+  uint32_t RegisterWriteValue[64];                           // no more than 64 register writes, sorry...
+  
 } BoardParameters;
 
 /* Data structures */
@@ -92,34 +148,36 @@ typedef struct
 } Stats;
 
 /* Globals */
-extern int	        gHandle;                                   /* CAEN library handle */
-                                                               
+// extern int	        gHandle;                                   /* CAEN library handle */
+int	gHandle; /* CAEN library handle */
+int      tHandle[8]; /* CAEN library handle */
+
 /* Variable declarations */                                    
 extern unsigned int gActiveChannel;                            /* Active channel for data analysis */
 extern unsigned int gEquippedChannels;                         /* Number of equipped channels      */
 extern unsigned int gEquippedGroups;                           /* Number of equipped groups        */
-                                                               
+
 extern long         gCurrTime;                                 /* Current time                     */
 extern long         gPrevTime;                                 /* Previous saved time              */
 extern long         gPrevWPlotTime;                            /* Previous time of Waveform plot   */
 extern long         gPrevHPlotTime;                            /* Previous time of Histogram plot  */
 extern long         gRunStartTime;                             /* Time of run start                */
 extern long         gRunElapsedTime;                           /* Elapsed time                     */
-                                                               
+
 extern uint32_t     gEvCnt[MAX_CHANNELS];                      /* Event counters per channel       */
 extern uint32_t     gEvCntOld[MAX_CHANNELS];                   /* Event counters per channel (old) */
 extern uint32_t**   gHisto;                                    /* Histograms                       */
-                                                               
+
 extern uint64_t     gExtendedTimeTag[MAX_CHANNELS];            /* Extended Time Tag                */
 extern uint64_t     gETT[MAX_CHANNELS];                        /* Extended Time Tag                */
 extern uint64_t     gPrevTimeTag[MAX_CHANNELS];                /* Previous Time Tag                */
-                                                               
+
 extern BoardParameters   gParams;                              /* Board parameters structure       */
 extern Stats        gAcqStats;                                 /* Acquisition statistics           */
-                                                               
+
 extern FILE *       gPlotDataFile;                             /* Target file for plotting data    */
 extern FILE *       gListFiles[MAX_CHANNELS];                  /* Output file for list data        */
-                                                               
+
 extern CAEN_DGTZ_BoardInfo_t             gBoardInfo;           /* Board Informations               */ 
 extern _CAEN_DGTZ_DPP_QDC_Event_t*     gEvent[MAX_CHANNELS]; /* Events                           */
 extern _CAEN_DGTZ_DPP_QDC_Waveforms_t* gWaveforms;           /* Waveforms                        */
@@ -138,8 +196,8 @@ extern FILE *       gWavePlotFile;                             /* Source file fo
 
 
 /* *************************************************************************************************
-** Function prototypes 
-****************************************************************************************************/
+ * * Function prototypes 
+ ****************************************************************************************************/
 
 /* readout_demo functions prototypes */
 int  setup_acquisition(char* fname);
@@ -153,20 +211,23 @@ void set_default_parameters(BoardParameters *params);
 int  load_configuration_from_file(char * fname, BoardParameters *params);
 int  setup_parameters(BoardParameters *params, char *fname);
 int  configure_digitizer(int handle, int gEquippedGroups, BoardParameters *params);
+int  configure_timing_digitizers(/*int* tHandle,*/ BoardParameters *params);
+int  SetSyncMode(int handle, int timing);
+
 
 /* Utility functions prototypes */
 long get_time();
 void clear_screen( void );
 
 #ifdef LINUX
-    #include <sys/time.h> /* struct timeval, select() */
-    #include <termios.h> /* tcgetattr(), tcsetattr() */
-    #include <stdlib.h> /* atexit(), exit() */
-    #include <unistd.h> /* read() */
-    #include <stdio.h> /* printf() */
-    #include <string.h> /* memcpy() */
-	
-	#define CLEARSCR "clear"
+#include <sys/time.h> /* struct timeval, select() */
+#include <termios.h> /* tcgetattr(), tcsetattr() */
+#include <stdlib.h> /* atexit(), exit() */
+#include <unistd.h> /* read() */
+#include <stdio.h> /* printf() */
+#include <string.h> /* memcpy() */
+
+#define CLEARSCR "clear"
 
 /*****************************************************************************/
 /*  SLEEP  */
@@ -186,11 +247,11 @@ int kbhit();
 
 #else  /* Windows */
 
-    #include <conio.h>
-	#define getch _getch
-	#define kbhit _kbhit
-	
-	#define CLEARSCR "cls"
+#include <conio.h>
+#define getch _getch
+#define kbhit _kbhit
+
+#define CLEARSCR "cls"
 #endif
 
 #endif
