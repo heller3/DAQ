@@ -40,7 +40,7 @@
 #define MAX_AGGR_NUM_PER_BLOCK_TRANSFER   1023 /* MAX 1023 */ 
 #define MAX_EVENTS_XFER   255
 
-#define ENABLE_TEST_PULSE 0
+#define ENABLE_TEST_PULSE 1
 
 // #define CONFIG_FILE_NAME "config.txt"
 

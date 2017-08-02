@@ -1197,8 +1197,6 @@ int setup_acquisition(char *fname) {
     }
   }
   
-  // Force Clock sync (should we?)
-  ForceClockSync(gHandle);
   
   //CHECK REGISTERS FOR RUN PROPAGATION
   printf("\nCHECK REGISTERS FOR RUN PROPAGATION\n");
@@ -1223,7 +1221,8 @@ int setup_acquisition(char *fname) {
 //   ret = CAEN_DGTZ_ReadRegister(gHandle,0x811c,&rdata);
 //   printf("SLAVE2 register 0x811c = %02x \n",rdata);
   
-  
+  // Force Clock sync (should we?)
+  ForceClockSync(gHandle);
   
   printf("Boards Configured. Press [s] to start run or [c] to check clock alignment\n\n");
   char c;

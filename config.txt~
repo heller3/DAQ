@@ -15,7 +15,7 @@ ConnectionVmeBaseAddress 33330000                     # VME Base Address : neede
 # Acquisition setup                            # 
 #----------------------------------------------#
 
-AcquisitionMode          LIST                 # Acquisition Mode: LIST or MIXED
+AcquisitionMode          MIXED                 # Acquisition Mode: LIST or MIXED
 ChannelTriggerMask       FFFFFFFF              # Channel Trigger Mask 
 SaveList                 0                     # Enable list output files (1)
 EnableExtendedTimeStamp  0                     # 1 = 48-bit Timestamp + 16-bit baseline
