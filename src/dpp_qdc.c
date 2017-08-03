@@ -10,6 +10,10 @@
 
 /* Globals */
 
+//////////////////////modified apolesel////////////////////////
+
+int GetNextEvent[2]={1,1};
+int MatchingEvents=0;
 
 
 /* Variable declarations */
@@ -21,6 +25,8 @@ long         gCurrTime;
 long         gPrevTime;
 long         gPrevWPlotTime;
 long         gPrevHPlotTime;
+long         tPrevWPlotTime;
+
 long         gRunStartTime;
 long         gRunElapsedTime;
 
@@ -37,6 +43,7 @@ Stats        gAcqStats  ;
 
 FILE *       gPlotDataFile;
 FILE *       gListFiles[MAX_CHANNELS];
+FILE *       timeTags;
 
 CAEN_DGTZ_BoardInfo_t             gBoardInfo;
 _CAEN_DGTZ_DPP_QDC_Event_t*     gEvent[MAX_CHANNELS];
@@ -56,10 +63,15 @@ char *       gEventPtr      = NULL;
 FILE *       gHistPlotFile       = NULL;
 FILE *       gWavePlotFile       = NULL;
 
-CAEN_DGTZ_X742_EVENT_t* Event742[8];
-char* buffer742[8];
-uint32_t buffer742Size[8];
+CAEN_DGTZ_X742_EVENT_t* Event742[2];
+char* buffer742[2];
+uint32_t buffer742Size[2];
+uint64_t Nroll[2]={0,0};
+double Ts, Tt;
+double TTT[2], PrevTTT[2]={0,0};
 
+FILE *event_file = NULL;
+FILE *plotter = NULL;
 
 _CAEN_DGTZ_DPP_QDC_Event_t *gEventsGrp[8] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
 
@@ -214,45 +226,45 @@ void set_default_parameters(BoardParameters *params) {
   for(i = 0; i < 8; ++i)
     params->GateWidth[i]  = 40;	   /* Gate Width in samples                                */
     
-  for(i = 0; i < 8; ++i)		
-    params->DCoffset[i] = 0x8000;            /* DC offset adjust in DAC counts (0x8000 = mid scale)  */
+    for(i = 0; i < 8; ++i)		
+      params->DCoffset[i] = 0x8000;            /* DC offset adjust in DAC counts (0x8000 = mid scale)  */
       
-  for(i = 0; i < 64; ++i) {
-    params->TriggerThreshold[i] = params->DefaultTriggerThr;
-  }
-  params->registerWritesCounter = 0;
-  params->NumOfV1742            = 0;  // by default 0
-  
-  params->v1742_TriggerEdge     = 0;  // by default 0  
-  params->v1742_RecordLength    = 0;  // by default 0
-  params->v1742_MatchingWindow  = 0;  // by default 0
-  params->v1742_IOlevel         = 0;  // by default 0
-  params->v1742_TestPattern     = 0;  // by default 0
-  params->v1742_DRS4Frequency   = 0;  // by default 0
-  params->v1742_StartMode       = 0;  // by default 0
-  params->v1742_EnableLog       = 0;  // by default 0
-  //V1742
-  
-  for(i = 0; i < 8 ; i++) {
-    params->v1742_ConnectionType[i]       = 0;
-    params->v1742_LinkNum[i]              = 0;
-    params->v1742_ConetNode[i]            = 0;
-    params->v1742_BaseAddress[i]          = 0;
-    params->v1742_FastTriggerThreshold[i] = 0;       
-    params->v1742_FastTriggerOffset[i]    = 0;          
-    params->v1742_DCoffset[i]             = 0;                   
-    params->v1742_ChannelThreshold[i]     = 0;           
-    params->v1742_TRThreshold[i]          = 0;                
-    params->v1742_ChannelPulseEdge[i]     = 0;           
-    params->v1742_PostTrigger[i]          = 0;
-  }
-  
-  for(i = 0; i < 64 ; i++) {
-    params->RegisterWriteBoard[i] = 65;
-    params->RegisterWriteAddr[i]  = 0;
-    params->RegisterWriteValue[i] = 0;
-  }
-      
+      for(i = 0; i < 64; ++i) {
+        params->TriggerThreshold[i] = params->DefaultTriggerThr;
+      }
+      params->registerWritesCounter = 0;
+    params->NumOfV1742            = 0;  // by default 0
+    
+    params->v1742_TriggerEdge     = 0;  // by default 0  
+    params->v1742_RecordLength    = 0;  // by default 0
+    params->v1742_MatchingWindow  = 0;  // by default 0
+    params->v1742_IOlevel         = 0;  // by default 0
+    params->v1742_TestPattern     = 0;  // by default 0
+    params->v1742_DRS4Frequency   = 0;  // by default 0
+    params->v1742_StartMode       = 0;  // by default 0
+    params->v1742_EnableLog       = 0;  // by default 0
+    //V1742
+    
+    for(i = 0; i < 8 ; i++) {
+      params->v1742_ConnectionType[i]       = 0;
+      params->v1742_LinkNum[i]              = 0;
+      params->v1742_ConetNode[i]            = 0;
+      params->v1742_BaseAddress[i]          = 0;
+      params->v1742_FastTriggerThreshold[i] = 0;       
+      params->v1742_FastTriggerOffset[i]    = 0;          
+      params->v1742_DCoffset[i]             = 0;                   
+      params->v1742_ChannelThreshold[i]     = 0;           
+      params->v1742_TRThreshold[i]          = 0;                
+      params->v1742_ChannelPulseEdge[i]     = 0;           
+      params->v1742_PostTrigger[i]          = 0;
+    }
+    
+    for(i = 0; i < 64 ; i++) {
+      params->RegisterWriteBoard[i] = 65;
+      params->RegisterWriteAddr[i]  = 0;
+      params->RegisterWriteValue[i] = 0;
+    }
+    
 }
 
 /*
@@ -270,201 +282,201 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       char str[100];
       fscanf(parameters_file, "%s", str);
       if (str[0] == '#') {
-	fgets(str, 100, parameters_file);
-	continue;
+        fgets(str, 100, parameters_file);
+        continue;
       }
       
-//       printf("%s\n",str);
+      //       printf("%s\n",str);
       
       if (strcmp(str, "AcquisitionMode") == 0) {
-	char str1[100];
-	fscanf(parameters_file, "%s", str1);
-	if (strcmp(str1, "MIXED") == 0) 
-	  params->AcqMode = ACQMODE_MIXED;
-	if (strcmp(str1, "LIST")  == 0) 
-	  params->AcqMode = ACQMODE_LIST;
+        char str1[100];
+        fscanf(parameters_file, "%s", str1);
+        if (strcmp(str1, "MIXED") == 0) 
+          params->AcqMode = ACQMODE_MIXED;
+        if (strcmp(str1, "LIST")  == 0) 
+          params->AcqMode = ACQMODE_LIST;
       }
       
       if (strcmp(str, "ConnectionType") == 0) {
-	char str1[100];
-	fscanf(parameters_file, "%s", str1);
-	if (strcmp(str1, "USB") == 0) 
-	  params->ConnectionType = CONNECTION_TYPE_USB;
-	if (strcmp(str1, "OPT")  == 0) 
-	  params->ConnectionType = CONNECTION_TYPE_OPT;
+        char str1[100];
+        fscanf(parameters_file, "%s", str1);
+        if (strcmp(str1, "USB") == 0) 
+          params->ConnectionType = CONNECTION_TYPE_USB;
+        if (strcmp(str1, "OPT")  == 0) 
+          params->ConnectionType = CONNECTION_TYPE_OPT;
       }
       
       
       if (strcmp(str, "ConnectionLinkNum") == 0) 
-	fscanf(parameters_file, "%d", &params->ConnectionLinkNum);
+        fscanf(parameters_file, "%d", &params->ConnectionLinkNum);
       if (strcmp(str, "ConnectionConetNode") == 0) 
-	fscanf(parameters_file, "%d", &params->ConnectionConetNode);
+        fscanf(parameters_file, "%d", &params->ConnectionConetNode);
       if (strcmp(str, "ConnectionVmeBaseAddress") == 0) 
-	fscanf(parameters_file, "%llx", &params->ConnectionVMEBaseAddress);	
+        fscanf(parameters_file, "%llx", &params->ConnectionVMEBaseAddress);	
       
       if (strcmp(str, "TriggerThreshold") == 0) {
-	int ch;
-	fscanf(parameters_file, "%d", &ch);
-	fscanf(parameters_file, "%d", &params->TriggerThreshold[ch]);
+        int ch;
+        fscanf(parameters_file, "%d", &ch);
+        fscanf(parameters_file, "%d", &params->TriggerThreshold[ch]);
       }
       
       if (strcmp(str, "RecordLength") == 0) 
-	fscanf(parameters_file, "%d", &params->RecordLength);
+        fscanf(parameters_file, "%d", &params->RecordLength);
       if (strcmp(str, "PreTrigger") == 0)
-	fscanf(parameters_file, "%d", &params->PreTrigger);
+        fscanf(parameters_file, "%d", &params->PreTrigger);
       if (strcmp(str, "ActiveChannel") == 0) 
-	fscanf(parameters_file, "%d", &params->ActiveChannel);
+        fscanf(parameters_file, "%d", &params->ActiveChannel);
       if (strcmp(str, "BaselineMode") == 0) 
-	fscanf(parameters_file, "%d", &params->BaselineMode);
+        fscanf(parameters_file, "%d", &params->BaselineMode);
       if (strcmp(str, "TrgMode") == 0) 
-	fscanf(parameters_file, "%d", &params->TrgMode);
+        fscanf(parameters_file, "%d", &params->TrgMode);
       if (strcmp(str, "TrgSmoothing") == 0) 
-	fscanf(parameters_file, "%d", &params->TrgSmoothing);
+        fscanf(parameters_file, "%d", &params->TrgSmoothing);
       if (strcmp(str, "TrgHoldOff") == 0) 
-	fscanf(parameters_file, "%d", &params->TrgHoldOff);
+        fscanf(parameters_file, "%d", &params->TrgHoldOff);
       if (strcmp(str, "FixedBaseline") == 0) 
-	fscanf(parameters_file, "%d", &params->FixedBaseline);
+        fscanf(parameters_file, "%d", &params->FixedBaseline);
       if (strcmp(str, "PreGate") == 0) 
-	fscanf(parameters_file, "%d", &params->PreGate);
+        fscanf(parameters_file, "%d", &params->PreGate);
       if (strcmp(str, "GateWidth") == 0) {
-	int gr;
-	fscanf(parameters_file, "%d", &gr);
-	fscanf(parameters_file, "%d", &params->GateWidth[gr]);
+        int gr;
+        fscanf(parameters_file, "%d", &gr);
+        fscanf(parameters_file, "%d", &params->GateWidth[gr]);
       }
       if (strcmp(str, "DCoffset") == 0) {
-	int ch;
-	fscanf(parameters_file, "%d", &ch);
-	fscanf(parameters_file, "%d", &params->DCoffset[ch]);
+        int ch;
+        fscanf(parameters_file, "%d", &ch);
+        fscanf(parameters_file, "%d", &params->DCoffset[ch]);
       }
       if (strcmp(str, "ChargeSensitivity") == 0) 
-	fscanf(parameters_file, "%d", &params->ChargeSensitivity);
+        fscanf(parameters_file, "%d", &params->ChargeSensitivity);
       if (strcmp(str, "NevAggr") == 0) 
-	fscanf(parameters_file, "%d", &params->NevAggr);
+        fscanf(parameters_file, "%d", &params->NevAggr);
       if (strcmp(str, "SaveList") == 0) 
-	fscanf(parameters_file, "%d", &params->SaveList);
+        fscanf(parameters_file, "%d", &params->SaveList);
       if (strcmp(str, "ChannelTriggerMask") == 0) 
-	fscanf(parameters_file, "%llx", &params->ChannelTriggerMask);	
+        fscanf(parameters_file, "%llx", &params->ChannelTriggerMask);	
       if (strcmp(str, "PulsePolarity") == 0) 
-	fscanf(parameters_file, "%d", &params->PulsePol);
+        fscanf(parameters_file, "%d", &params->PulsePol);
       if (strcmp(str, "EnableChargePedestal") == 0) 
-	fscanf(parameters_file, "%d", &params->EnChargePed);
+        fscanf(parameters_file, "%d", &params->EnChargePed);
       if (strcmp(str, "DisableTriggerHysteresis") == 0) 
-	fscanf(parameters_file, "%d", &params->DisTrigHist);
+        fscanf(parameters_file, "%d", &params->DisTrigHist);
       if (strcmp(str, "DisableSelfTrigger") == 0) 
-	fscanf(parameters_file, "%d", &params->DisSelfTrigger);
+        fscanf(parameters_file, "%d", &params->DisSelfTrigger);
       if (strcmp(str, "EnableTestPulses") == 0) 
-	fscanf(parameters_file, "%d", &params->EnTestPulses);
+        fscanf(parameters_file, "%d", &params->EnTestPulses);
       if (strcmp(str, "TestPulsesRate") == 0) 
-	fscanf(parameters_file, "%d", &params->TestPulsesRate);
+        fscanf(parameters_file, "%d", &params->TestPulsesRate);
       if (strcmp(str, "DefaultTriggerThr") == 0) 
-	fscanf(parameters_file, "%d", &params->DefaultTriggerThr);
+        fscanf(parameters_file, "%d", &params->DefaultTriggerThr);
       if (strcmp(str, "EnableExtendedTimeStamp") == 0) 
-	fscanf(parameters_file, "%d", &params->EnableExtendedTimeStamp);
+        fscanf(parameters_file, "%d", &params->EnableExtendedTimeStamp);
       
       
       //V1742
       
       if (strcmp(str, "NumOfV1742") == 0) {
-	fscanf(parameters_file, "%d", &params->NumOfV1742);
+        fscanf(parameters_file, "%d", &params->NumOfV1742);
       }
       if (strcmp(str, "v1742_TriggerEdge") == 0) {
-	fscanf(parameters_file, "%d", &params->v1742_TriggerEdge);
+        fscanf(parameters_file, "%d", &params->v1742_TriggerEdge);
       }
       if (strcmp(str, "v1742_RecordLength") == 0) {
-	fscanf(parameters_file, "%d", &params->v1742_RecordLength);
+        fscanf(parameters_file, "%d", &params->v1742_RecordLength);
       } 
       if (strcmp(str, "v1742_MatchingWindow") == 0) {
-	fscanf(parameters_file, "%d", &params->v1742_MatchingWindow);
+        fscanf(parameters_file, "%d", &params->v1742_MatchingWindow);
       }
       if (strcmp(str, "v1742_IOlevel") == 0) {
-	fscanf(parameters_file, "%d", &params->v1742_IOlevel);
+        fscanf(parameters_file, "%d", &params->v1742_IOlevel);
       }      
       if (strcmp(str, "v1742_TestPattern") == 0) {
-	fscanf(parameters_file, "%d", &params->v1742_TestPattern);
+        fscanf(parameters_file, "%d", &params->v1742_TestPattern);
       }    
       if (strcmp(str, "v1742_DRS4Frequency") == 0) {
-	fscanf(parameters_file, "%d", &params->v1742_DRS4Frequency);
+        fscanf(parameters_file, "%d", &params->v1742_DRS4Frequency);
       }  
       if (strcmp(str, "v1742_StartMode") == 0) {
-	fscanf(parameters_file, "%d", &params->v1742_StartMode);
+        fscanf(parameters_file, "%d", &params->v1742_StartMode);
       }      
       if (strcmp(str, "v1742_EnableLog") == 0) {
-	fscanf(parameters_file, "%d", &params->v1742_EnableLog);
+        fscanf(parameters_file, "%d", &params->v1742_EnableLog);
       }      
       
       
       
       if (strcmp(str, "v1742_ConnectionType") == 0) {
-	int digi;
-	char str1[100];
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%s", str1);
-	if (strcmp(str1, "USB") == 0) 
-	  params->v1742_ConnectionType[digi] = CONNECTION_TYPE_USB;
-	if (strcmp(str1, "OPT")  == 0) 
-	  params->v1742_ConnectionType[digi] = CONNECTION_TYPE_OPT;
+        int digi;
+        char str1[100];
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%s", str1);
+        if (strcmp(str1, "USB") == 0) 
+          params->v1742_ConnectionType[digi] = CONNECTION_TYPE_USB;
+        if (strcmp(str1, "OPT")  == 0) 
+          params->v1742_ConnectionType[digi] = CONNECTION_TYPE_OPT;
       }
       
       if (strcmp(str, "v1742_LinkNum") == 0) {
-	int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%d", &params->v1742_LinkNum[digi]);
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_LinkNum[digi]);
       }
-	
+      
       if (strcmp(str, "v1742_ConetNode") == 0) {
         int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%d", &params->v1742_ConetNode[digi]);
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_ConetNode[digi]);
       }
-	
+      
       if (strcmp(str, "v1742_BaseAddress") == 0) {
-	int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%llx", &params->v1742_BaseAddress[digi]);	
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%llx", &params->v1742_BaseAddress[digi]);	
       }
       
       if (strcmp(str, "v1742_FastTriggerThreshold") == 0) {
         int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%d", &params->v1742_FastTriggerThreshold[digi]);
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_FastTriggerThreshold[digi]);
       }        
       if (strcmp(str, "v1742_FastTriggerOffset") == 0) {
         int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%d", &params->v1742_FastTriggerOffset[digi]);
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_FastTriggerOffset[digi]);
       }              
       if (strcmp(str, "v1742_DCoffset") == 0) {
         int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%llx", &params->v1742_DCoffset[digi]);
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%llx", &params->v1742_DCoffset[digi]);
       }                                              
       if (strcmp(str, "v1742_ChannelThreshold") == 0) {
         int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%d", &params->v1742_ChannelThreshold[digi]);
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_ChannelThreshold[digi]);
       }                
       if (strcmp(str, "v1742_TRThreshold") == 0) {
         int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%d", &params->v1742_TRThreshold[digi]);
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_TRThreshold[digi]);
       }                          
       if (strcmp(str, "v1742_ChannelPulseEdge") == 0) {
         int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%d", &params->v1742_ChannelPulseEdge[digi]);
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_ChannelPulseEdge[digi]);
       }                
       if (strcmp(str, "v1742_PostTrigger") == 0) {
         int digi;
-	fscanf(parameters_file, "%d", &digi);
-	fscanf(parameters_file, "%d", &params->v1742_PostTrigger[digi]);
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_PostTrigger[digi]);
       }
       
       //generic writes
       if (strcmp(str, "RegisterWrite") == 0) {
-	fscanf(parameters_file, "%d", &params->RegisterWriteBoard[params->registerWritesCounter]);
-	fscanf(parameters_file, "%llx", &params->RegisterWriteAddr[params->registerWritesCounter]);
-	fscanf(parameters_file, "%llx", &params->RegisterWriteValue[params->registerWritesCounter]);
-	params->registerWritesCounter++;
+        fscanf(parameters_file, "%d", &params->RegisterWriteBoard[params->registerWritesCounter]);
+        fscanf(parameters_file, "%llx", &params->RegisterWriteAddr[params->registerWritesCounter]);
+        fscanf(parameters_file, "%llx", &params->RegisterWriteValue[params->registerWritesCounter]);
+        params->registerWritesCounter++;
       }
     }
     fclose(parameters_file);
@@ -508,7 +520,7 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
     printf("VME Handle is %d\n", BoardInfo[i].VMEHandle);
     printf("Serial Number is %d\n\n", BoardInfo[i].SerialNumber);
     
-//     printf("%d %d %d\n",i,tHandle[i],ret);
+    //     printf("%d %d %d\n",i,tHandle[i],ret);
     ret |= CAEN_DGTZ_Reset(tHandle[i]);
     
     if (params->v1742_TestPattern) {
@@ -539,17 +551,17 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
       ret |= CAEN_DGTZ_SetChannelDCOffset(tHandle[i], ch, params->v1742_DCoffset[i]);
     }
     
-//     printf("%d\n",params->registerWritesCounter );
+    //     printf("%d\n",params->registerWritesCounter );
     int r;
     
     for(r = 0 ; r < params->registerWritesCounter ; r++) {
       if(params->RegisterWriteBoard[r] == i)
       {
-	ret |= CAEN_DGTZ_WriteRegister(tHandle[i],params->RegisterWriteAddr[r],params->RegisterWriteValue[r]);
-// 	printf("%d %d %llx %llx %d \n",i,params->RegisterWriteBoard[r],params->RegisterWriteAddr[r],params->RegisterWriteValue[r],ret);
+        ret |= CAEN_DGTZ_WriteRegister(tHandle[i],params->RegisterWriteAddr[r],params->RegisterWriteValue[r]);
+        // 	printf("%d %d %llx %llx %d \n",i,params->RegisterWriteBoard[r],params->RegisterWriteAddr[r],params->RegisterWriteValue[r],ret);
       }
     }
-      
+    
   }
   
   
@@ -571,7 +583,7 @@ int SetSyncMode(int handle, int timing)
   // [3]   -> 1  accepts triggers from combination of channels, in addition to trg-in and sw trg - //FIXME what does this mean?
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_GLOBAL_TRG_MASK, (1<<30/*|1<<Params.RefChannel[i])*/));  // this set triggers to external trigger -> [30] = 1
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_TRG_OUT_MASK, 0);   // no tigger propagation to TRGOUT
-//   globalret |= ret; 
+  //   globalret |= ret; 
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_RUN_DELAY, 0);   // Run Delay decreases with the position (to compensate for run the propagation delay) //FIXME - what is this?
   // Set TRGOUT=RUN to propagate run through S-IN => TRGOUT daisy chain
   ret = CAEN_DGTZ_ReadRegister(handle, ADDR_FRONT_PANEL_IO_SET, &reg);
@@ -624,7 +636,7 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
       ret |= _CAEN_DGTZ_SetChannelTriggerThreshold(handle,i,params->TriggerThreshold[i]);
     else
       for(i=0; i<32; i++) 
-	ret |= _CAEN_DGTZ_SetChannelTriggerThreshold(handle,i,params->TriggerThreshold[i]);     
+        ret |= _CAEN_DGTZ_SetChannelTriggerThreshold(handle,i,params->TriggerThreshold[i]);     
       
       /* Disable Group self trigger for the acquisition (mask = 0) */
       ret |= CAEN_DGTZ_SetGroupSelfTrigger(handle,CAEN_DGTZ_TRGMODE_ACQ_ONLY,0x00);    
@@ -670,7 +682,7 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
   ret |= _CAEN_DGTZ_SetRecordLength(handle,params->RecordLength);           
   
   /* Set DC offset */
-  for (i=0; i<4; i++)
+  for (i=0; i<EquippedGroups; i++)
     ret |= CAEN_DGTZ_SetGroupDCOffset(handle, i, params->DCoffset[i]);
   
   /* enable Charge mode */
@@ -726,12 +738,22 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
  ** reading board data.
  */  
 int run_acquisition() {
+//   printf("inizio\n");
   int ret;
   unsigned int i;
   unsigned int j;
   uint32_t     bin;
   uint32_t     bsize;
   uint32_t     NumEvents[MAX_CHANNELS];
+  uint32_t     NumEvents742[2] = {0,0};
+  CAEN_DGTZ_EventInfo_t  EventInfo[2];
+  char *EventPtr[2]={NULL, NULL};
+  //   CAEN_DGTZ_X742_EVENT_t *Event742[2] = {NULL, NULL}; 
+  float *Wave[2];
+  float *Trigger[2];
+  uint32_t EIndx[2]={0,0};
+  
+  
   
   /* Send a SW Trigger if requested by user */
   if (gSWTrigger) {
@@ -750,15 +772,243 @@ int run_acquisition() {
   }   
   if (bsize == 0) 
     return 0; 
-  
-  /* read V1742 Events */
-  
-  for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
-    ret = CAEN_DGTZ_ReadData(tHandle[i], CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer742[i], &buffer742Size[i]);
-    printf("buffersize %d\n",buffer742Size[i]);
+  else
+  {
+    int NumEvents740 = 0;
+    ret |= CAEN_DGTZ_GetNumEvents(gHandle, gAcqBuffer, bsize, &NumEvents740);
+    printf("NumEvents740 = %d\n",NumEvents740);  
   }
   
+  /* read V1742 Events */
+  printf("gParams.NumOfV1742 = %d\n",gParams.NumOfV1742);
   
+  OutputData_t outputData;
+  event_file = fopen("event.txt", "w");
+  
+  for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
+    
+    ret = CAEN_DGTZ_ReadData(tHandle[i], CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer742[i], &buffer742Size[i]);
+    if (buffer742Size[i]>0)
+	    ret=ret;
+    ret |= CAEN_DGTZ_GetNumEvents(tHandle[i], buffer742[i], buffer742Size[i], &NumEvents742[i]);
+    if (ret) {
+	      printf("Readout Error\n");
+	      return -1;
+	    }
+	    
+	printf("NumEvents742[%d] = %d\n",i,NumEvents742[i]);    
+	
+	
+//   for(i=0; i<2; i++) 
+//   { // get the wave regardless of any time stamp consideration
+    //           ApplyDataCorrection((Params.RefChannel[i]/8), 7,Params.DRS4Frequency, &(Event742[i]->DataGroup[Params.RefChannel[i]/8]), &Table[i]); //correct data every time. this was moved here for debugging purpose, might slow down everything 
+    int RefChannel =16; 
+    outputData.TTT[i] = TTT[i];
+        
+//    fprintf(timeTags,"%f ",TTT[i]);
+
+     //     printf("fine\n");
+    // 	  int ind;
+    // 	  for(ind = 0 ; ind < 1024 ; ind++){
+    outputData.Wave[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[RefChannel%8];
+    outputData.Trigger[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[8];
+    // 	  }
+    outputData.PulseEdgeTime[i] = -1; //set to -1 by default
+    outputData.TrEdgeTime[i] = -1;    //set to -1 by default
+//   }
+	
+	
+	
+    
+    
+    
+//     tPrevWPlotTime = gCurrTime;
+  }
+  
+  for(i=0; i < 1024; i++) {
+      fprintf(event_file, "%f\t%f\t%f\t%f\n", outputData.Wave[0][i],outputData.Trigger[0][i], outputData.Wave[1][i], outputData.Trigger[1][i]);
+  }
+  int RefChannel =16; 
+  fclose(event_file);
+  fprintf(plotter, "set xlabel 'Samples' \n");
+  fprintf(plotter, "plot 'event.txt' u 0:1 title 'Ch%d_Board0' w step,'event.txt' u 0:2 title 'TR%d_Board0' w step,'event.txt' u 0:3  title 'Ch%d_Board1' w step, 'event.txt' u 0:4 title 'TR%d_Board1' w step\n",
+            RefChannel,(RefChannel/16),RefChannel, (RefChannel/16));
+  fflush(plotter);
+//   while(1)
+//   {
+//     for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
+//       //////modified apolesel///////////////////////////////////////
+//       if (GetNextEvent[i]) {
+// 	if (EIndx[i] >= NumEvents742[i]) {
+// 	  EIndx[i] = 0;
+// 	  ret = CAEN_DGTZ_ReadData(tHandle[i], CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer742[i], &buffer742Size[i]);
+// 	  
+// 	  if (buffer742Size[i]>0)
+// 	    ret=ret;
+// 	  //     printf("buffersize %d\n",buffer742Size[i]);
+// 	    ret |= CAEN_DGTZ_GetNumEvents(tHandle[i], buffer742[i], buffer742Size[i], &NumEvents742[i]);
+// 	    if (ret) {
+// 	      printf("Readout Error\n");
+// 	      return -1;
+// 	    }
+// 	}
+// 	//     printf("NumEvents742[%d] = %d\n",i,NumEvents742[i]);
+// 	// //     printf("NumEvents[1] = %d\n",NumEvents[1]);
+// 	
+// 	
+// 	if (NumEvents742[i]) {
+// 	  //printf("INSIDE NumEvents742[%d] = %d\n",i,NumEvents742[i]);
+// 	  // 	      printf("EIndx[%d] = %d\n",i,EIndx[i]);
+// 	  
+// 	  //test 
+// 	  //EIndx[i] = 0; //FIXME ???
+// 	  
+// 	  ret = CAEN_DGTZ_GetEventInfo(tHandle[i], buffer742[i], buffer742Size[i], EIndx[i], &EventInfo[i], &EventPtr[i]);
+// 	  ret = CAEN_DGTZ_DecodeEvent(tHandle[i], EventPtr[i], (void**)&Event742[i]);
+// 	  // //       TrgCnt[i]++;
+// 	  if (ret) {
+// 	    printf("Event build error\n");
+// 	    // 	goto QuitProgram;
+// 	    return -1;
+// 	  }
+// 	  GetNextEvent[i]=0;
+// 	}
+//       }
+//       ////////////////////////////////////////////////////
+//       
+//     }
+//     if (GetNextEvent[0] || GetNextEvent[1])  // missing data from one or both boards
+//             continue;
+//     
+//     //TEMP REF CHANNEL
+//     int RefChannel = 16; 
+//     //   double TTT[2];
+//     Tt = 8.533333; // step per il Local_TTT
+//     Ts = 0.2;
+// 
+//     // ----------------------------------------------------------------
+//     // Analyze data
+//     // ----------------------------------------------------------------
+//     // calculate extended Trigger Time Tag (take roll over into account)
+//     for(i=0; i<2; i++) 
+//     {
+//       if (Event742[i]->GrPresent[(RefChannel/8)])
+//       {
+//         TTT[i] = ((Nroll[i]<<30) + (Event742[i]->DataGroup[(RefChannel/8)].TriggerTimeTag & 0x3FFFFFFF))*Tt;
+//         if (TTT[i] < PrevTTT[i]) 
+// 	{
+//           Nroll[i]++;
+//           TTT[i] += (1<<30)*Tt;
+//         }
+//         PrevTTT[i] = TTT[i];
+//       }
+//       else
+//       {
+//     //       EvNoData[i]++;
+//       }
+//     }
+//     ///////////////////modified apolesel//////////////////////////////////////////
+//     
+//     // use only events whose time stamp differ of less than the matching window:
+//     // CASE1: board 0 is behind board 1; keep event from 1 and take next event from 0
+//     if (TTT[0] < (TTT[1] - gParams.v1742_MatchingWindow*Tt)) 
+//     {
+//       EIndx[0]++; 
+//       // 	    printf("board 0 is behind board 1\n");
+//       GetNextEvent[0]=1;
+//       continue;
+//       // CASE2: board 1 is behind board 0; keep event from 0 and take next event from 1
+//     } 
+//     else if (TTT[1] < (TTT[0] - gParams.v1742_MatchingWindow*Tt)) 
+//     {
+//       EIndx[1]++; 
+//       GetNextEvent[1]=1;
+//       // 	    printf("board 1 is behind board 0\n");
+//       continue;
+//       // CASE3: trigger time tags match: calculate DeltaT between edges
+//     } 
+//     else 
+//     {  
+//       // 	  printf("Accepted\n");
+//       MatchingEvents++;
+//       
+//       printf("Delta TTT = %f \n",TTT[1]-TTT[0]);
+//       
+// //       for(i=0; i<2; i++) 
+// //       {
+// // 	EIndx[i]++;
+// // 	GetNextEvent[i]=1;  
+// //       }
+//       break; //FIXME correct?
+//     }
+//     
+//     ////////////////////////////////////////////////////////////////////////////
+//     
+//     
+//   }
+  
+
+
+  
+  
+  
+  
+  
+  timeTags = fopen("timeTags.txt", "a");
+  //printf("%f %f\n",TTT[0],TTT[1]);
+  
+//   OutputData_t outputData;
+//   for(i=0; i<2; i++) 
+//   { // get the wave regardless of any time stamp consideration
+//     //           ApplyDataCorrection((Params.RefChannel[i]/8), 7,Params.DRS4Frequency, &(Event742[i]->DataGroup[Params.RefChannel[i]/8]), &Table[i]); //correct data every time. this was moved here for debugging purpose, might slow down everything 
+//     int RefChannel =16; 
+//     outputData.TTT[i] = TTT[i];
+//         
+//    fprintf(timeTags,"%f ",TTT[i]);
+// 
+//      //     printf("fine\n");
+//     // 	  int ind;
+//     // 	  for(ind = 0 ; ind < 1024 ; ind++){
+//     outputData.Wave[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[RefChannel%8];
+//     outputData.Trigger[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[8];
+//     // 	  }
+//     outputData.PulseEdgeTime[i] = -1; //set to -1 by default
+//     outputData.TrEdgeTime[i] = -1;    //set to -1 by default
+//   }
+  
+  
+  
+  
+  
+ 
+  
+  
+  
+  
+  // Plot Waveforms
+  int plotWaveforms = 1; //for now set here //FIXME
+  
+  
+  
+  if (plotWaveforms && ((gCurrTime-tPrevWPlotTime) > 2000) )   {
+//   if(1){
+    // 	  if (!ContinousWaveplot) {
+    // 	    plot = 0;
+    // 	  }
+    
+//     event_file = fopen("event.txt", "w");
+//     for(i=0; i < 1024; i++) {
+//       fprintf(event_file, "%f\t%f\t%f\t%f\n", outputData.Wave[0][i],outputData.Trigger[0][i], outputData.Wave[1][i], outputData.Trigger[1][i]);
+//     }
+//     int RefChannel =16; 
+//     fclose(event_file);
+//     fprintf(plotter, "set xlabel 'Samples' \n");
+//     fprintf(plotter, "plot 'event.txt' u 0:1 title 'Ch%d_Board0' w step,'event.txt' u 0:2 title 'TR%d_Board0' w step,'event.txt' u 0:3  title 'Ch%d_Board1' w step, 'event.txt' u 0:4 title 'TR%d_Board1' w step\n",
+//             RefChannel,(RefChannel/16),RefChannel, (RefChannel/16));
+//     fflush(plotter);
+//     tPrevWPlotTime = gCurrTime;
+//     sleep(1);
+  }
   
   /* Decode and analyze Events */
   if ( (ret = _CAEN_DGTZ_GetDPPEvents(gHandle, gAcqBuffer, bsize, (void **)gEvent, NumEvents)) != CAEN_DGTZ_Success)
@@ -767,9 +1017,14 @@ int run_acquisition() {
     exit(-1);
   }
   
+  
+  
   /* Loop over all channels and events */
   for (i=0; i < gEquippedChannels; ++i) {              
     for(j=0; j<NumEvents[i]; ++j) {
+      
+      
+      
       uint32_t Charge;
       
       Charge = (gEvent[i][j].Charge & 0xFFFF);  /* rebin charge to 4Kchannels */
@@ -777,62 +1032,71 @@ int run_acquisition() {
       
       /* Update energy histogram */
       if ((Charge < HISTO_NBIN) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT) && (gEvent[i][j].Overrange == 0))
-	gHisto[i][Charge]++;
+        gHisto[i][Charge]++;
       
       /* Plot Histogram */
-      if ((gCurrTime-gPrevHPlotTime) > 1000) {
-	gPlotDataFile = fopen("PlotData.txt", "w");
-	for(bin=0; bin<HISTO_NBIN; bin++)
-	  fprintf(gPlotDataFile, "%d\n", gHisto[gActiveChannel][bin]);
-	fclose(gPlotDataFile);
-	fprintf(gHistPlotFile, "plot 'PlotData.txt' with step\n");
-	fflush(gHistPlotFile);
-	gPrevHPlotTime = gCurrTime;
+      if ((gCurrTime-gPrevHPlotTime) > 2000) {
+        gPlotDataFile = fopen("PlotData.txt", "w");
+        for(bin=0; bin<HISTO_NBIN; bin++)
+          fprintf(gPlotDataFile, "%d\n", gHisto[gActiveChannel][bin]);
+        fclose(gPlotDataFile);
+        fprintf(gHistPlotFile, "plot 'PlotData.txt' with step\n");
+        fflush(gHistPlotFile);
+        gPrevHPlotTime = gCurrTime;
       }
       
       /* Check roll over of time tag */
       if (gEvent[i][j].TimeTag < gPrevTimeTag[i])    
-	gETT[i]++;
+        gETT[i]++;
       
       gExtendedTimeTag[i] = (gETT[i] << 32) + (uint64_t)(gEvent[i][j].TimeTag);
       
       
       /* Save event to output file */
       if (gParams.SaveList) { 
-	fprintf(gListFiles[i], "%16llu %8d\n", gExtendedTimeTag[i], gEvent[i][j].Charge);
+        fprintf(gListFiles[i], "%16llu %8d\n", gExtendedTimeTag[i], gEvent[i][j].Charge);
+      }
+      
+      if (i==gActiveChannel)
+      {
+        fprintf(timeTags,"%16llu %f %16llu\n",gExtendedTimeTag[i],TTT[1]-TTT[0],gExtendedTimeTag[i]-TTT[0]);
+	//printf("%f %f %16llu %f %16llu\n",TTT[0],TTT[1],gExtendedTimeTag[i],TTT[1]-TTT[0],gExtendedTimeTag[i]-TTT[0]);  
+	
       }
       
       /* Plot Waveforms (if enabled) */
-      if ((i==gActiveChannel) && (gParams.AcqMode == ACQMODE_MIXED) && ((gCurrTime-gPrevWPlotTime) > 300) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT)) {
-	_CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
-	gPlotDataFile = fopen("PlotWave.txt", "w");
-	for(j=0; j<gWaveforms->Ns; j++) {
-	  fprintf(gPlotDataFile, "%d ", gWaveforms->Trace1[j]);                 /* samples */
-	  fprintf(gPlotDataFile, "%d ", 2000 + 200 *  gWaveforms->DTrace1[j]);  /* gate    */
-	  fprintf(gPlotDataFile, "%d ", 1000 + 200 *  gWaveforms->DTrace2[j]);  /* trigger */
-	  fprintf(gPlotDataFile, "%d ", 500 + 200 *  gWaveforms->DTrace3[j]);   /* trg hold off */
-	  fprintf(gPlotDataFile, "%d\n", 100 + 200 *  gWaveforms->DTrace4[j]);  /* overthreshold */
-	}
-	fclose(gPlotDataFile);
-	
-	
-	switch (gAnalogTrace) {
-	  case 0:
-	    fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Input' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
-	    break;
-	  case 1:
-	    fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Smooth' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
-	    break;
-	  case 2:
-	    fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Baseline' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
-	    break;
-	  default:
-	    fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Input' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
-	    break;
-	}
-	
-	fflush(gWavePlotFile);
-	gPrevWPlotTime = gCurrTime;
+      if ((i==gActiveChannel) && (gParams.AcqMode == ACQMODE_MIXED) && ((gCurrTime-gPrevWPlotTime) > 2000) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT)) {
+        _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+        gPlotDataFile = fopen("PlotWave.txt", "w");
+        for(j=0; j<gWaveforms->Ns; j++) {
+          fprintf(gPlotDataFile, "%d ", gWaveforms->Trace1[j]);                 /* samples */
+          fprintf(gPlotDataFile, "%d ", 2000 + 200 *  gWaveforms->DTrace1[j]);  /* gate    */
+          fprintf(gPlotDataFile, "%d ", 1000 + 200 *  gWaveforms->DTrace2[j]);  /* trigger */
+          fprintf(gPlotDataFile, "%d ", 500 + 200 *  gWaveforms->DTrace3[j]);   /* trg hold off */
+          fprintf(gPlotDataFile, "%d\n", 100 + 200 *  gWaveforms->DTrace4[j]);  /* overthreshold */
+        }
+        fclose(gPlotDataFile);
+        
+        
+        
+        
+        switch (gAnalogTrace) {
+          case 0:
+            fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Input' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
+            break;
+          case 1:
+            fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Smooth' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
+            break;
+          case 2:
+            fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Baseline' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
+            break;
+          default:
+            fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Input' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
+            break;
+        }
+        
+        fflush(gWavePlotFile);
+        gPrevWPlotTime = gCurrTime;
       }
       
       
@@ -844,20 +1108,20 @@ int run_acquisition() {
     if (gToggleTrace) {
       
       switch (gAnalogTrace) {
-	case 0:
-	  CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 3<<12);
-	  break;
-	case 1:
-	  CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 1<<12);
-	  CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 1<<13);
-	  break;
-	case 2:
-	  CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 1<<12);
-	  CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 1<<13);
-	  break;
-	default:
-	  CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 3<<12);
-	  break;
+        case 0:
+          CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 3<<12);
+          break;
+        case 1:
+          CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 1<<12);
+          CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 1<<13);
+          break;
+        case 2:
+          CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 1<<12);
+          CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 1<<13);
+          break;
+        default:
+          CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 3<<12);
+          break;
       }
       
       
@@ -867,6 +1131,7 @@ int run_acquisition() {
   }
   
   gAcqStats.nb += bsize;
+  fclose(timeTags);
   return 0;
   
 }
@@ -886,27 +1151,27 @@ void print_statistics() {
   if (elapsed>1000) {
     uint64_t diff;
     gAcqStats.TotEvCnt = 0;
-    clear_screen();
+//     clear_screen();
     
     for(i=0; i < gEquippedChannels; ++i) {
       gAcqStats.TotEvCnt += gEvCnt[i];             
     }
     
-    printf("*********** Global statistics ***************\n");
-    printf("=============================================\n\n");
-    printf("Elapsed time         = %d ms\n", gAcqStats.gRunElapsedTime);
-    printf("Readout Loops        = %d\n", gLoops );
-    printf("Bytes read           = %d\n", gAcqStats.nb);
-    printf("Events               = %lld\n", gAcqStats.TotEvCnt);
-    printf("Readout Rate         = %.2f MB/s\n\n", (float)gAcqStats.nb / 1024 / (elapsed));
-    
-    
-    printf("******** Group  %d statistics **************\n\n", grp4stats);
-    printf("-- Channel -- Event Rate (KHz) -----\n\n");
+//     printf("*********** Global statistics ***************\n");
+//     printf("=============================================\n\n");
+//     printf("Elapsed time         = %d ms\n", gAcqStats.gRunElapsedTime);
+//     printf("Readout Loops        = %d\n", gLoops );
+//     printf("Bytes read           = %d\n", gAcqStats.nb);
+//     printf("Events               = %lld\n", gAcqStats.TotEvCnt);
+//     printf("Readout Rate         = %.2f MB/s\n\n", (float)gAcqStats.nb / 1024 / (elapsed));
+//     
+//     
+//     printf("******** Group  %d statistics **************\n\n", grp4stats);
+//     printf("-- Channel -- Event Rate (KHz) -----\n\n");
     
     for(i=0; i < 8; ++i) {
       diff = gEvCnt[grp4stats*8+i]-gEvCntOld[grp4stats*8+i];
-      printf("    %2d      %.2f\n", grp4stats*8+i, (float)(diff) / (elapsed));
+//       printf("    %2d      %.2f\n", grp4stats*8+i, (float)(diff) / (elapsed));
       gEvCntOld[grp4stats*8+i] = gEvCnt[grp4stats*8+i];
     }
     
@@ -983,7 +1248,7 @@ int setup_acquisition(char *fname) {
   uint32_t rom_board_id;
   
   clear_screen();
-  
+  plotter = popen("gnuplot", "w");    // Open plotter pipe (gnuplot)
   /* ---------------------------------------------------------------------------------------
    * * Set Parameters (default values or read from config file)
    ** ---------------------------------------------------------------------------------------
@@ -1009,8 +1274,8 @@ int setup_acquisition(char *fname) {
       /* .. if not successful try opticallink connection then ...*/
       ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_OpticalLink, gParams.ConnectionLinkNum, gParams.ConnectionConetNode, gParams.ConnectionVMEBaseAddress, &gHandle);
       if(ret != CAEN_DGTZ_Success) {
-	printf("Can't open digitizer\n");
-	return -1;
+        printf("Can't open digitizer\n");
+        return -1;
       }
     }
   }
@@ -1036,19 +1301,19 @@ int setup_acquisition(char *fname) {
     switch (rom_board_id) 
     {
       case 0:
-	sprintf(gBoardInfo.ModelName, "V1740D");
-	break;
+        sprintf(gBoardInfo.ModelName, "V1740D");
+        break;
       case 1: 
-	sprintf(gBoardInfo.ModelName, "VX1740D");
-	break;
+        sprintf(gBoardInfo.ModelName, "VX1740D");
+        break;
       case 2: 
-	sprintf(gBoardInfo.ModelName,"DT5740D");
-	break;
+        sprintf(gBoardInfo.ModelName,"DT5740D");
+        break;
       case 3: 
-	sprintf(gBoardInfo.ModelName,"N6740D");
-	break;
+        sprintf(gBoardInfo.ModelName,"N6740D");
+        break;
       default: 
-	break;
+        break;
     }
   }
   else
@@ -1220,8 +1485,8 @@ int setup_acquisition(char *fname) {
   printf("SLAVE2 register 0x811c = 0x%08x \n\n",rdata);
   
   
-//   ret = CAEN_DGTZ_ReadRegister(gHandle,0x811c,&rdata);
-//   printf("SLAVE2 register 0x811c = %02x \n",rdata);
+  //   ret = CAEN_DGTZ_ReadRegister(gHandle,0x811c,&rdata);
+  //   printf("SLAVE2 register 0x811c = %02x \n",rdata);
   
   
   
@@ -1231,9 +1496,9 @@ int setup_acquisition(char *fname) {
   if (c == 'c') {
     uint32_t rdata0,rdata1,rdata2;
     
-/*    rdata = (uint32_t *) malloc(sizeof(uint32_t) * totalNumbOfDigi);*/
+    /*    rdata = (uint32_t *) malloc(sizeof(uint32_t) * totalNumbOfDigi);*/
     // propagate CLK to trgout on both (all?) boards
-/*    for(unsigned int i=0; i < 3; i++) {*/
+    /*    for(unsigned int i=0; i < 3; i++) {*/
     
     CAEN_DGTZ_ReadRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, &rdata0);
     CAEN_DGTZ_WriteRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, 0x00050000);
@@ -1242,7 +1507,7 @@ int setup_acquisition(char *fname) {
     CAEN_DGTZ_ReadRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, &rdata2);
     CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, 0x00050000);
     
-/*    }*/
+    /*    }*/
     printf("Trigger Clk is now output on TRGOUT.\n");
     printf("Press [r] to reload PLL config, [s] to start acquisition, any other key to quit\n");
     while( (c=getch()) == 'r') {
@@ -1252,8 +1517,8 @@ int setup_acquisition(char *fname) {
       ForceClockSync(gHandle);
       printf("PLL reloaded\n");
     }
-/*    for(unsigned int i=0; i < totalNumbOfDigi; i++)*/
-
+    /*    for(unsigned int i=0; i < totalNumbOfDigi; i++)*/
+    
     CAEN_DGTZ_WriteRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, rdata0);
     CAEN_DGTZ_WriteRegister(tHandle[0], ADDR_FRONT_PANEL_IO_SET, rdata1);
     CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, rdata2);
@@ -1263,10 +1528,14 @@ int setup_acquisition(char *fname) {
   }
   
   
-/*  printf("\nPress a key to start the acquisition\n");*/
+  /*  printf("\nPress a key to start the acquisition\n");*/
   
-  if (c != 's') return -1;
-  
+  if (c != 's') {
+    	GetNextEvent[0]=1;
+	GetNextEvent[1]=1;
+
+    return -1;
+  }
   ret = CAEN_DGTZ_SWStartAcquisition(gHandle);
   printf("Acquisition started\n");
   
@@ -1293,8 +1562,8 @@ int check_user_input() {
     if (c=='T') gSWTrigger = gSWTrigger ^ 2;
     if (c=='r') {	
       for(i= 0 ; i < gEquippedChannels; ++i) {
-	memset(gHisto[i], 0, HISTO_NBIN * sizeof(uint32_t));
-	gEvCnt[i] = 0;
+        memset(gHisto[i], 0, HISTO_NBIN * sizeof(uint32_t));
+        gEvCnt[i] = 0;
       }
       gAcqStats.nb = 0;
       gLoops = 0;

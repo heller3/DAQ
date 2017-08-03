@@ -199,7 +199,7 @@ v1742_ConnectionType             0    OPT                   # Connection link : 
 v1742_LinkNum                    0    0                     # Connection Link number 
 v1742_ConetNode                  0    1                     # Connection Node : Node Id in CONET daisy chain (0-7)
 v1742_BaseAddress                0    0x33100000              # VME Base Address : needed only for VME access via USB/Optical Bridge - HEX NUMBER
-v1742_FastTriggerThreshold       0    26934                 # TR Trigger threshold (for fast triggering)
+v1742_FastTriggerThreshold       0    20934                 # TR Trigger threshold (for fast triggering)
 v1742_FastTriggerOffset          0    32768                 # TR Offset adjust (DAC value)
 v1742_DCoffset                   0    0x7FFF                  # input DC offset adjust (DAC value) - HEX NUMBER
 v1742_ChannelThreshold           0    1500                  # Threshold for Time Pulse Calculation

@@ -148,6 +148,16 @@ typedef struct
   unsigned int nb;                                             /* Number of bytes read                   */
 } Stats;
 
+
+typedef struct
+{
+  float TTT[2];
+  float *Wave[2];
+  float *Trigger[2];
+  float PulseEdgeTime[2];
+  float TrEdgeTime[2];
+} OutputData_t;
+
 /* Globals */
 // extern int	        gHandle;                                   /* CAEN library handle */
 int	gHandle; /* CAEN library handle */

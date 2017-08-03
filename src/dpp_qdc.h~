@@ -40,7 +40,7 @@
 #define MAX_AGGR_NUM_PER_BLOCK_TRANSFER   1023 /* MAX 1023 */ 
 #define MAX_EVENTS_XFER   255
 
-#define ENABLE_TEST_PULSE 1
+#define ENABLE_TEST_PULSE 0
 
 // #define CONFIG_FILE_NAME "config.txt"
 
@@ -147,6 +147,16 @@ typedef struct
   uint64_t TotEvCnt;                                           /* Total number of events                 */
   unsigned int nb;                                             /* Number of bytes read                   */
 } Stats;
+
+
+typedef struct
+{
+  float TTT[2];
+  float *Wave[2];
+  float *Trigger[2];
+  float PulseEdgeTime[2];
+  float TrEdgeTime[2];
+} OutputData_t;
 
 /* Globals */
 // extern int	        gHandle;                                   /* CAEN library handle */
