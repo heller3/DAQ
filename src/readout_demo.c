@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
   char*             fname = 0;
   
   /* Command line processing */
-  if (argc == 2) 
+  if (argc > 1) 
   {
     fname = argv[1];
   }
@@ -39,8 +39,9 @@ int main(int argc, char* argv[])
   {
     fname = "config.txt";
   }
-    /*
-    acquisition_runtime = atoi(argv[1]) * 1000;
+  if (argc == 3) 
+  {
+    acquisition_runtime = atoi(argv[2]) * 1000;
     if (acquisition_runtime < 0) {
       usage();
       exit(-1);
@@ -48,8 +49,10 @@ int main(int argc, char* argv[])
     if (errno == ERANGE) {
       perror("acquisition_runtime parameter too big:\n");
       exit(-1);
-    }*/
-//   }
+    }
+  }
+  
+  //   }
   
   /* Init statistics */
   gAcqStats.TotEvCnt = 0;

@@ -40,6 +40,8 @@
 #define MAX_AGGR_NUM_PER_BLOCK_TRANSFER   1023 /* MAX 1023 */ 
 #define MAX_EVENTS_XFER   255
 
+#define GROUPS_742 4
+
 #define ENABLE_TEST_PULSE 0
 
 // #define CONFIG_FILE_NAME "config.txt"
@@ -131,7 +133,7 @@ typedef struct
   uint32_t v1742_DCoffset[8];            
   uint32_t v1742_ChannelThreshold[8];    
   uint32_t v1742_TRThreshold[8];         
-  uint32_t v1742_ChannelPulseEdge[8];    
+  CAEN_DGTZ_TriggerPolarity_t v1742_ChannelPulseEdge[8];    
   uint32_t v1742_PostTrigger[8]; 
   
   uint32_t RegisterWriteBoard[64];                           // no more than 64 register writes, sorry...
@@ -230,6 +232,7 @@ int  ForceClockSync(int handle);
 /* Utility functions prototypes */
 long get_time();
 void clear_screen( void );
+double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart);
 
 #ifdef LINUX
 #include <sys/time.h> /* struct timeval, select() */
