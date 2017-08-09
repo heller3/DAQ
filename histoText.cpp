@@ -34,84 +34,74 @@
 #include <stdint.h>
 
 // class of input from 742 digi
-// class input742_t
-// {
-// public:
-//   int groups;
-//   int chPerGroup;
-//   
-//   input742_t(int a,int b){ groups = a; chPerGroup = b;};
-//   
-//   std::vector<double> TTT;
-//   std::vector<double> PulseEdgeTime;
-//   
-//   void clear()
-//   {
-//     TTT.clear();
-//     PulseEdgeTime.clear();
-//   };
-//   friend std::istream& operator>>(std::istream& input, input742_t& s)
-//   {
-//     for(int i = 0 ; i < s.groups ; i++)
-//     {
-//       double x;
-//       input >> x;
-//       s.TTT.push_back(x);
-//       for(int j = 0 ; j < s.chPerGroup ; j++)
-//       {
-//         double y;
-//         input >> y;
-//         s.PulseEdgeTime.push_back(y);
-//       }
-//     }
-//     return input;
-//   }
-// };
-// 
-// 
-// 
-// class input740_t
-// {
-// public:
-//   int groups;
-//   int chPerGroup;
-//   
-//   input740_t(int a,int b){ groups = a; chPerGroup = b;};
-//   
-//   double TTT;
-//   std::vector<uint16_t> Charge;
-//   void clear()
-//   {
-//     TTT = 0;
-//     Charge.clear();
-//   };
-//   friend std::istream& operator>>(std::istream& input, input740_t& s)
-//   {
-//     input >> s.TTT;
-//     for(int i = 0 ; i < s.groups ; i++)
-//     {
-//       for(int j = 0 ; j < s.chPerGroup ; j++)
-//       {
-//         uint16_t x;
-//         input >> x;
-//         s.Charge.push_back(x);
-//       }
-//     }
-//     return input;
-//   }
-// };
-
-typedef struct
+class input742_t
 {
-  double TTT;                                 /*Trigger time tag of the event, i.e. of the entire board (we always operate with common external trigger) */
-  uint16_t Charge[64];                        /*All 64 channels for now*/
-} Data740_t;
+public:
+  int groups;
+  int chPerGroup;
+  
+  input742_t(int a,int b){ groups = a; chPerGroup = b;};
+  
+  std::vector<double> TTT;
+  std::vector<double> PulseEdgeTime;
+  
+  void clear()
+  {
+    TTT.clear();
+    PulseEdgeTime.clear();
+  };
+  friend std::istream& operator>>(std::istream& input, input742_t& s)
+  {
+    for(int i = 0 ; i < s.groups ; i++)
+    {
+      double x;
+      input >> x;
+      s.TTT.push_back(x);
+      for(int j = 0 ; j < s.chPerGroup ; j++)
+      {
+        double y;
+        input >> y;
+        s.PulseEdgeTime.push_back(y);
+      }
+    }
+    return input;
+  }
+};
 
-typedef struct
+
+
+class input740_t
 {
-  double TTT[4];                              /*Trigger time tag of the groups for this board */
-  double PulseEdgeTime[32];                 /*PulseEdgeTime for each channel in the group*/
-} Data742_t;
+public:
+  int groups;
+  int chPerGroup;
+  
+  input740_t(int a,int b){ groups = a; chPerGroup = b;};
+  
+  double TTT;
+  std::vector<uint16_t> Charge;
+  void clear()
+  {
+    TTT = 0;
+    Charge.clear();
+  };
+  friend std::istream& operator>>(std::istream& input, input740_t& s)
+  {
+    input >> s.TTT;
+    for(int i = 0 ; i < s.groups ; i++)
+    {
+      for(int j = 0 ; j < s.chPerGroup ; j++)
+      {
+        uint16_t x;
+        input >> x;
+        s.Charge.push_back(x);
+      }
+    }
+    return input;
+  }
+};
+
+
 
 //----------------//
 //  MAIN PROGRAM  //
@@ -131,39 +121,28 @@ int main(int argc,char **argv)
   file0 = argv[1];
   file1 = argv[2];
   file2 = argv[3];
-//   ifstream in0,in1,in2;
-//   //  std::vector<input742_t> input742;
-//   input740_t temp_input740(8,8);
-//   input742_t temp_input742_0(4,8);
-//   input742_t temp_input742_1(4,8);
-  std::vector<Data740_t> input740;
-  std::vector<Data742_t> input742_0;
-  std::vector<Data742_t> input742_1;
-//   
-//   
-//   in0.open(file0,std::ios::in);
-//   in1.open(file1,std::ios::in);
-//   in2.open(file2,std::ios::in);
+  ifstream in0,in1,in2;
+  //  std::vector<input742_t> input742;
+  input740_t temp_input740(8,8);
+  input742_t temp_input742_0(4,8);
+  input742_t temp_input742_1(4,8);
+  std::vector<input740_t> input740;
+  std::vector<input742_t> input742_0;
+  std::vector<input742_t> input742_1;
   
   
-  
-  FILE * in0 = NULL;
-  FILE * in1 = NULL;
-  FILE * in2 = NULL;
-  
-  in0 = fopen(file0, "rb");
-  in1 = fopen(file1, "rb");
-  in2 = fopen(file2, "rb");
+  in0.open(file0,std::ios::in);
+  in1.open(file1,std::ios::in);
+  in2.open(file2,std::ios::in);
   
   long long int counter = 0;
   std::cout << "Reading File " << file0 << "..." << std::endl;
-  
-  Data740_t ev740;
-  while(fread((void*)&ev740, sizeof(ev740), 1, in0) == 1)
+  while(in0 >> temp_input740)
   {
-    input740.push_back(ev740);
+    input740.push_back(temp_input740);
+    temp_input740.clear();
     counter++;
-//     if(counter == 1000000) break;
+    if(counter == 1000000) break;
     if((counter % 100000) == 0) std::cout << "\r" << counter << std::flush ;
   }
   std::cout << std::endl;
@@ -171,12 +150,13 @@ int main(int argc,char **argv)
   
   counter = 0;
   std::cout << "Reading File " << file1 << "..."<< std::endl;
-  Data742_t ev742;
-  while(fread((void*)&ev742, sizeof(ev742), 1, in1) == 1)
+  while(in1 >> temp_input742_0)
   {
-    input742_0.push_back(ev742); 
+    input742_0.push_back(temp_input742_0);
+    temp_input742_0.clear();
+    
     counter++;
-//     if(counter == 1000000) break;
+    if(counter == 1000000) break;
     if((counter % 100000) == 0) std::cout << "\r" << counter << std::flush ;
   }
   std::cout << std::endl;
@@ -184,11 +164,12 @@ int main(int argc,char **argv)
   
   counter = 0;
   std::cout << "Reading File " << file2 << "..."<< std::endl;
-  while(fread((void*)&ev742, sizeof(ev742), 1, in2) == 1)
+  while(in2 >> temp_input742_1)
   {
-    input742_1.push_back(ev742);
+    input742_1.push_back(temp_input742_1);
+    temp_input742_1.clear();
     counter++;
-//     if(counter == 1000000) break;
+    if(counter == 1000000) break;
     if((counter % 100000) == 0) std::cout << "\r" << counter << std::flush ;
   }
   std::cout << std::endl;
@@ -222,7 +203,7 @@ int main(int argc,char **argv)
   //  }
   
   
-  TFile *fRoot = new TFile("testBin.root","RECREATE");
+  TFile *fRoot = new TFile("testText.root","RECREATE");
   
   double maxDelta = -INFINITY;
   double minDelta = INFINITY;
@@ -245,6 +226,9 @@ int main(int argc,char **argv)
   double Tt = 1000.0/(2.0*58.59375);
   double Ts = 16.0;
   
+  std::cout << "Looking for maxs ..." << std::endl;
+  counter = 0;
+  
   
   //min events num for all
   long long int events = input742_0.size();
@@ -253,8 +237,7 @@ int main(int argc,char **argv)
   if(input742_1.size() < events) 
     events = input742_1.size();
   
-  std::cout << "Looking for maxs ..." << std::endl;
-  counter = 0;
+       
   for(int i = 0 ; i < events ; i++)
   {
     double diff = (input742_0[i].PulseEdgeTime[16] - input742_1[i].PulseEdgeTime[16])*200.0;
@@ -268,8 +251,6 @@ int main(int argc,char **argv)
       minDeltaTTT = diffTTT;
     if( diffTTT > maxDeltaTTT )
       maxDeltaTTT = diffTTT;
-    
-    if(diffTTT < -1e7 ) std::cout << "MISALIGNMENT " << counter <<  " " << input742_0[i].TTT[2] << " " << input742_1[i].TTT[2] <<std::endl;
     
     double diff740_742_0 = (input740[i].TTT - input742_0[i].TTT[2]) ;
     if( diff740_742_0 < minDelta740_742_0 )
@@ -302,8 +283,6 @@ int main(int argc,char **argv)
   }
   std::cout << std::endl;
   std::cout << " done" << std::endl;
-  std::cout << std::endl;
-  
   std::cout << minDeltaTTT << " " << maxDeltaTTT <<std::endl;
   
   // std::cout << "Max delta T between V1740D and V1742_1 = " <<
@@ -330,8 +309,7 @@ int main(int argc,char **argv)
   std::cout << "Producing plots ..." << std::endl;
   counter = 0;
   
-  
-  
+                                      
   
   
   for(int i = 0 ; i < events ; i++)
@@ -404,9 +382,9 @@ int main(int argc,char **argv)
   
   std::cout << "misaligned = " << misaligned << std::endl;
   
-  fclose(in0);
-  fclose(in1);
-  fclose(in2);
+  in0.close();
+  in1.close();
+  in2.close();
   
   hResSameGroup->Write();
   hResSameBoard->Write();

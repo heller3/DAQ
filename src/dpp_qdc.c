@@ -7,7 +7,7 @@
  ******************************************************************************/
 #include "dpp_qdc.h"
 #include "X742CorrectionRoutines.h"
-
+#include <float.h> 
 /* Globals */
 
 //////////////////////modified apolesel////////////////////////
@@ -42,11 +42,14 @@ BoardParameters   gParams;
 Stats        gAcqStats  ;
 
 FILE *       gPlotDataFile;
-FILE *       gListFiles[MAX_CHANNELS];
-FILE *       timeTags;
-FILE *       tttFile;
-FILE **      sStamps740;
+// FILE *       gListFiles[MAX_CHANNELS];
+// FILE *       timeTags;
+// FILE *       tttFile;
+FILE *       sStamps740;
 FILE **      sStamps742;
+
+FILE *       binOut740;
+FILE **      binOut742;
 
 
 CAEN_DGTZ_BoardInfo_t             gBoardInfo;
@@ -76,11 +79,16 @@ DataCorrection_t* Table;
 uint64_t** Nroll;
 double **TTT, **PrevTTT;
 
+Data740_t Data740;
+Data742_t *Data742;
+
 double Ts, Tt;
 double realTime740 = 0;
 uint64_t temp_gPrevTimeTag = 0;
 uint64_t temp_gETT = 0;
 uint64_t temp_gExtendedTimeTag = 0;
+
+int foundEvent[3] = {0,0,0};
 
 FILE *event_file = NULL;
 FILE *plotter = NULL;
@@ -98,6 +106,7 @@ _CAEN_DGTZ_DPP_QDC_Event_t *gEventsGrp[8] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,
 #define CLEARSCR "clear"
 
 #define WRITE_DATA 1
+// #define OPTIMIZATION_RUN 1
 
 static struct termios g_old_kbd_mode;
 
@@ -211,6 +220,7 @@ void clear_screen()
 void set_default_parameters(BoardParameters *params) {
   int i;
   
+  params->OutputMode        = OUTPUTMODE_BINARY;
   params->RecordLength      = 200;		   /* Number of samples in the acquisition window (waveform mode only)    */
   params->PreTrigger        = 100;  		   /* PreTrigger is in number of samples                                  */
   params->ActiveChannel     = 0;			   /* Channel used for the data analysis (plot, histograms, etc...)       */
@@ -236,16 +246,17 @@ void set_default_parameters(BoardParameters *params) {
   params->EnChargePed       = 0;             /* Enable Fixed Charge Pedestal in firmware (0=off, 1=on (1024 pedestal)) */
   params->DisTrigHist       = 0;             /* 0 = Trigger Histeresys on; 1 = Trigger Histeresys off */
   params->DefaultTriggerThr = 10;            /* Default threshold for trigger                        */
+  params->RunDelay          = 0;
   
   for(i = 0; i < 8; ++i)
     params->GateWidth[i]  = 40;	   /* Gate Width in samples                                */
     
-    for(i = 0; i < 8; ++i)		
-      params->DCoffset[i] = 0x8000;            /* DC offset adjust in DAC counts (0x8000 = mid scale)  */
+  for(i = 0; i < 8; ++i)		
+    params->DCoffset[i] = 0x8000;            /* DC offset adjust in DAC counts (0x8000 = mid scale)  */
       
-      for(i = 0; i < 64; ++i) {
+  for(i = 0; i < 64; ++i) {
         params->TriggerThreshold[i] = params->DefaultTriggerThr;
-      }
+  }
       params->registerWritesCounter = 0;
     params->NumOfV1742            = 0;  // by default 0
     
@@ -271,6 +282,8 @@ void set_default_parameters(BoardParameters *params) {
       params->v1742_TRThreshold[i]          = 0;                
       params->v1742_ChannelPulseEdge[i]     = 0;           
       params->v1742_PostTrigger[i]          = 0;
+      params->v1742_RunDelay[i]             = 0;                       
+      
     }
     
     for(i = 0; i < 64 ; i++) {
@@ -301,6 +314,19 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       }
       
       //       printf("%s\n",str);
+      
+      
+      
+      if (strcmp(str, "OutputMode") == 0) {
+        char str1[100];
+        fscanf(parameters_file, "%s", str1);
+        if (strcmp(str1, "BINARY") == 0) 
+          params->OutputMode = OUTPUTMODE_BINARY;
+        if (strcmp(str1, "TEXT")  == 0) 
+          params->OutputMode = OUTPUTMODE_TEXT;
+        if (strcmp(str1, "BOTH")  == 0) 
+          params->OutputMode = OUTPUTMODE_BOTH;
+      }
       
       if (strcmp(str, "AcquisitionMode") == 0) {
         char str1[100];
@@ -386,7 +412,8 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
         fscanf(parameters_file, "%d", &params->DefaultTriggerThr);
       if (strcmp(str, "EnableExtendedTimeStamp") == 0) 
         fscanf(parameters_file, "%d", &params->EnableExtendedTimeStamp);
-      
+      if (strcmp(str, "RunDelay") == 0) 
+        fscanf(parameters_file, "%d", &params->RunDelay);
       
       //V1742
       
@@ -484,6 +511,11 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
         fscanf(parameters_file, "%d", &digi);
         fscanf(parameters_file, "%d", &params->v1742_PostTrigger[digi]);
       }
+      if (strcmp(str, "v1742_RunDelay") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_RunDelay[digi]);
+      }
       
       //generic writes
       if (strcmp(str, "RegisterWrite") == 0) {
@@ -511,24 +543,53 @@ int setup_parameters(BoardParameters *params, char *fname) {
 }
 
 
-double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart)
+// ASSUMING NIM PULSE for trigger and negative pulse for nino, I.E. negative pulses on both trigger and signal
+double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart,int WaveType)
 {
+  // WaveType = 0   -> Pulse wave
+  // WaveType = 1   -> Trigger wave
+  
   unsigned int i,j;
   double crosspoint = -1.0;
   
+  //find min and max of this wave
+  float min = FLT_MAX;
+  float max = -FLT_MAX;
+  for (i=0; i < length; i++) {
+    if(data[i] < min ) min = data[i];
+    if(data[i] > max ) max = data[i];
+  }
+  
+  //set the flex point to 50% vertical swing
+  //we compute a distance of 50%
+//   float halfDistance = fabs(min-max) / 2.0;
+  
+//   if(halfDistance < 300.0 ) return crosspoint;
+  
   // first find the baseline for this wave
-  int baseLineSamples = 400; 
+  int baseLineSamples = 300; 
   double baseline = 0.0;
   for (i=(int)(Tstart); i < baseLineSamples; ++i) {
     baseline += ((double)data[i])/((double) baseLineSamples);
   }
+  
+  //find the pulse beging and end, i.e. when the signal crosses a value that is more than  
+  
 //   printf("Baseline = %f\n",baseline);
   //then re-define the threshold as a distance 1100 from baseline
   //not general implementation, works well only for identical signals of this peculiar amplitude 
   //double thresholdReal = (double) threshold;
-   double thresholdReal = baseline - 700.0;
   
-  int samplesNum = 5; // N = 3
+//   printf("%f\n",halfDistance);
+//   halfDistance = 700.0;
+  double distanceToFlexPoint;
+  if(WaveType == 0)
+    distanceToFlexPoint = 800;
+  if(WaveType == 1)
+    distanceToFlexPoint = 650;
+  double thresholdReal = baseline - distanceToFlexPoint;
+  
+  int samplesNum = 7; // N = 3
   //now take +/- N bins and calculate the regression lines 
   float slope = 0; 
   float intercept = 0;
@@ -605,17 +666,12 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
       printf("This digitizer is not a V1742; Not supported\n");      
       return -1;
     } 
-    if (ret = LoadCorrectionTables(tHandle[i], &Table[i], 0, params->v1742_DRS4Frequency))
-    {
-      printf("Error loading data correction tables\n");      
-      return -1;
-    }
+    
     printf("Connected to CAEN Digitizer Model %s\n", BoardInfo[i].ModelName);
     printf("ROC FPGA Release is %s\n", BoardInfo[i].ROC_FirmwareRel);
     printf("AMC FPGA Release is %s\n", BoardInfo[i].AMC_FirmwareRel);
     printf("VME Handle is %d\n", BoardInfo[i].VMEHandle);
     printf("Serial Number is %d\n\n", BoardInfo[i].SerialNumber);
-    printf("Correction Tables Loaded!\n\n");
     //     printf("%d %d %d\n",i,tHandle[i],ret);
     ret |= CAEN_DGTZ_Reset(tHandle[i]);
     
@@ -627,6 +683,36 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
       ret |= CAEN_DGTZ_SetDRS4SamplingFrequency(tHandle[i], params->v1742_DRS4Frequency);
     }
     
+    CAEN_DGTZ_DRS4Frequency_t frequency;
+    ret |= CAEN_DGTZ_GetDRS4SamplingFrequency (tHandle[i], &frequency);
+    
+    double Ts;
+//     printf("frequency %ld\n",frequency);
+    printf("DRS4 Sampling Frequency is ");
+    if( frequency == CAEN_DGTZ_DRS4_5GHz )   Ts = 0.2;
+    if( frequency == CAEN_DGTZ_DRS4_2_5GHz ) Ts = 0.4;
+    if( frequency == CAEN_DGTZ_DRS4_1GHz )   Ts = 1.0;
+    if( frequency == CAEN_DGTZ_DRS4_750MHz ) Ts = 1.0/0.75;
+//     switch((int) frequency) {
+//         case CAEN_DGTZ_DRS4_5GHz: Ts = 0.2; break;
+//         case CAEN_DGTZ_DRS4_2_5GHz: Ts =  0.4; break;
+//         case CAEN_DGTZ_DRS4_1GHz: Ts =  1.0; break;
+//         default: Ts = 0.2; break;
+//     }
+    printf("%f GHz\n\n",1.0/Ts);
+    
+    if (ret = LoadCorrectionTables(tHandle[i], &Table[i], 0, params->v1742_DRS4Frequency))
+    {
+      printf("Error loading data correction tables\n");      
+      return -1;
+    }
+    printf("Correction Tables Loaded!\n");
+    if ((ret = CAEN_DGTZ_EnableDRS4Correction(tHandle[i])) != CAEN_DGTZ_Success)
+    {
+      printf("Error loading data correction tables\n");      
+      return -1;
+    }
+    printf("Correction Tables enabled!\n\n");
     ret |= CAEN_DGTZ_SetRecordLength(tHandle[i], params->v1742_RecordLength); 
     ret |= CAEN_DGTZ_SetPostTriggerSize(tHandle[i], params->v1742_PostTrigger[i]);
     ret |= CAEN_DGTZ_SetIOLevel(tHandle[i], params->v1742_IOlevel);
@@ -666,8 +752,8 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
 
 
 /* ============================================================================== */
-int SetSyncMode(int handle, int timing)
-{  
+int SetSyncMode(int handle, int timing, uint32_t runDelay)
+{
   unsigned int i, ret=0;
   uint32_t reg,d32;
   if (timing){  // Run starts with S-IN on the 2nd board and all board afterwards
@@ -680,7 +766,8 @@ int SetSyncMode(int handle, int timing)
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_GLOBAL_TRG_MASK, (1<<30/*|1<<Params.RefChannel[i])*/));  // this set triggers to external trigger -> [30] = 1
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_TRG_OUT_MASK, 0);   // no tigger propagation to TRGOUT
   //   globalret |= ret; 
-  ret = CAEN_DGTZ_WriteRegister(handle, ADDR_RUN_DELAY, 0);   // Run Delay decreases with the position (to compensate for run the propagation delay) //FIXME - what is this?
+  printf("Clock n for sync = %d \n",runDelay);
+  ret = CAEN_DGTZ_WriteRegister(handle, ADDR_RUN_DELAY, runDelay);   // Run Delay decreases with the position (to compensate for run the propagation delay) //
   // Set TRGOUT=RUN to propagate run through S-IN => TRGOUT daisy chain
   ret = CAEN_DGTZ_ReadRegister(handle, ADDR_FRONT_PANEL_IO_SET, &reg);
   reg = reg & 0xFFF0FFFF | 0x00010000; 
@@ -690,12 +777,17 @@ int SetSyncMode(int handle, int timing)
 }
 
 
-int ForceClockSync(int handle)
+int ForceClockSync(int handle,int tHandle[],int size)
 {
   int ret;
   Sleep(500);
   /* Force clock phase alignment */
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_FORCE_SYNC, 1);
+  unsigned int i;
+  for(i=0;i< size;i++)
+  {
+//     ret = CAEN_DGTZ_WriteRegister(tHandle[i], ADDR_FORCE_SYNC, 1);
+  }
   /* Wait an appropriate time before proceeding */
   Sleep(1000);
   return ret;
@@ -877,7 +969,6 @@ int run_acquisition() {
   /*       ANALYZE DATA                     */
   /*----------------------------------------*/
   
-//   int WRITE_DATA = 0;
   
   
   // analyze the 740 data
@@ -903,19 +994,24 @@ int run_acquisition() {
       
       if(WRITE_DATA)
       {
-        fprintf(sStamps740,"%f ", realTime740);
-        for (i=0; i < gEquippedChannels; ++i) {                    
-          fprintf(sStamps740,"%u ",(gEvent[i][j].Charge & 0xFFFF));
+        if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+          Data740.TTT = realTime740;
+        
+        if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+          fprintf(sStamps740,"%f ", realTime740);
+        for (i=0; i < gEquippedChannels; ++i) 
+        { 
+          if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+            fprintf(sStamps740,"%u ",(gEvent[i][j].Charge & 0xFFFF));
+          if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+            Data740.Charge[i] = (gEvent[i][j].Charge & 0xFFFF);
         }
-        fprintf(sStamps740,"\n");
+        if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+          fprintf(sStamps740,"\n");
+        if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+          fwrite(&Data740,sizeof(Data740_t),1,binOut740);
       }
     }
-    
-    
-    /* Loop over all channels and events */
-    
-    
-    
   }
   
     
@@ -957,11 +1053,15 @@ int run_acquisition() {
             PrevTTT[i][gr] = TTT[i][gr];
             
             if(WRITE_DATA)
-              fprintf(sStamps742[i],"%f ", TTT[i][gr]);
-            
+            {
+              if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                Data742[i].TTT[gr] = TTT[i][gr];
+              if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                fprintf(sStamps742[i],"%f ", TTT[i][gr]);
+            }
             /* Correct event of both boards */
             
-            ApplyDataCorrection(gr, 7,gParams.v1742_DRS4Frequency, &(Event742[i]->DataGroup[gr]), &Table[i]);
+//             ApplyDataCorrection(gr, 7,gParams.v1742_DRS4Frequency, &(Event742[i]->DataGroup[gr]), &Table[i]);
 //             
             float *Wave;
             
@@ -969,7 +1069,7 @@ int run_acquisition() {
             uint32_t nSamples = Event742[i]->DataGroup[gr].ChSize[8];
             Wave = Event742[i]->DataGroup[gr].DataChannel[8]; //see ./home/caenvme/Programs/CAEN/CAENDigitizer_2.7.1/include
             
-            double TriggerEdgeTime = interpolateWithMultiplePoints(Wave, nSamples, gParams.v1742_TRThreshold[i], gParams.v1742_TriggerEdge, 0); // interpolate with line 
+            double TriggerEdgeTime = interpolateWithMultiplePoints(Wave, nSamples, gParams.v1742_TRThreshold[i], gParams.v1742_TriggerEdge, 0,1); // interpolate with line, Type = 1 means trigger wave 
             
             
             unsigned int ch;
@@ -978,35 +1078,55 @@ int run_acquisition() {
               //interpolate the wave
               uint32_t nSamples = Event742[i]->DataGroup[gr].ChSize[ch];
               Wave = Event742[i]->DataGroup[gr].DataChannel[ch];
-              double PulseEdgeTime = interpolateWithMultiplePoints(Wave, nSamples, gParams.v1742_ChannelThreshold[i], gParams.v1742_ChannelPulseEdge[i], 0); // interpolate with line 
+              double PulseEdgeTime = interpolateWithMultiplePoints(Wave, nSamples, gParams.v1742_ChannelThreshold[i], gParams.v1742_ChannelPulseEdge[i], 0,0); // interpolate with line, Type = 0 means pulse wave 
               
               if(PulseEdgeTime >= 0)
               {
                 PulseEdgeTime = TriggerEdgeTime - PulseEdgeTime;
+                if(WRITE_DATA)
+                {
+                  if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                    Data742[i].PulseEdgeTime[gr * 8 + ch] = PulseEdgeTime;
+                  if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                    fprintf(sStamps742[i],"%f ",PulseEdgeTime);             
+                }
+              }
+              else
+              {
+                if(WRITE_DATA)
+                {
+                  if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                    Data742[i].PulseEdgeTime[gr * 8 + ch] = 0;
+                  if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                    fprintf(sStamps742[i],"%f ",0);             
+                }
               }
               
-              if(WRITE_DATA)
-                fprintf(sStamps742[i],"%f ",PulseEdgeTime);
               
-              
-              
-            }
-            
-            
+            }           
           }
           else
           {
             if(WRITE_DATA)
-              fprintf(sStamps742[i],"0 0 0 0 0 0 0 0 0 "); // for groups with no data
-          }
-          
+            {
+              unsigned int ch;
+              for(ch = 0 ; ch < 9 ; ch ++) // to 9 because the TRn is also included
+              {
+                if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                  Data742[i].PulseEdgeTime[gr * 8 + ch] = 0;
+              }
+              if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                fprintf(sStamps742[i],"0 0 0 0 0 0 0 0 0 "); // for groups with no data
+            }
+          }          
         }
         if(WRITE_DATA)
-          fprintf(sStamps742[i],"\n");
-        
-        
-        
-        
+        {
+          if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+            fprintf(sStamps742[i],"\n"); 
+          if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+            fwrite(&Data742[i],sizeof(Data742_t),1,binOut742[i]);
+        }
       }
       
       
@@ -1196,24 +1316,7 @@ int run_acquisition() {
 //   timeTags = fopen("timeTags.txt", "a");
   //printf("%f %f\n",TTT[0],TTT[1]);
   
-//   OutputData_t outputData;
-//   for(i=0; i<2; i++) 
-//   { // get the wave regardless of any time stamp consideration
-//     //           ApplyDataCorrection((Params.RefChannel[i]/8), 7,Params.DRS4Frequency, &(Event742[i]->DataGroup[Params.RefChannel[i]/8]), &Table[i]); //correct data every time. this was moved here for debugging purpose, might slow down everything 
-//     int RefChannel =16; 
-//     outputData.TTT[i] = TTT[i];
-//         
-//    fprintf(timeTags,"%f ",TTT[i]);
-// 
-//      //     printf("fine\n");
-//     // 	  int ind;
-//     // 	  for(ind = 0 ; ind < 1024 ; ind++){
-//     outputData.Wave[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[RefChannel%8];
-//     outputData.Trigger[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[8];
-//     // 	  }
-//     outputData.PulseEdgeTime[i] = -1; //set to -1 by default
-//     outputData.TrEdgeTime[i] = -1;    //set to -1 by default
-//   }
+  
   
   
   
@@ -1224,30 +1327,52 @@ int run_acquisition() {
   
   
   
-  // Plot Waveforms
-//   int plotWaveforms = 1; //for now set here //FIXME
+//   Plot Waveforms
+  int plotWaveforms = 0; //for now set here //FIXME
   
   
   
-//   if (plotWaveforms && ((gCurrTime-tPrevWPlotTime) > 2000) )   {
-//   if(1){
-    // 	  if (!ContinousWaveplot) {
-    // 	    plot = 0;
-    // 	  }
+  if (plotWaveforms && ((gCurrTime-tPrevWPlotTime) > 2000) )   {
     
-//     event_file = fopen("event.txt", "w");
-//     for(i=0; i < 1024; i++) {
-//       fprintf(event_file, "%f\t%f\t%f\t%f\n", outputData.Wave[0][i],outputData.Trigger[0][i], outputData.Wave[1][i], outputData.Trigger[1][i]);
-//     }
+    OutputData_t outputData;
+    int RefChannel =16; 
+    for(i=0; i<2; i++) 
+    { // get the wave regardless of any time stamp consideration
+      
+      //     ApplyDataCorrection(RefChannel, 7,gParams.v1742_DRS4Frequency, &(Event742[i]->DataGroup[Params.RefChannel[i]/8]), &Table[i]); //correct data every time. this was moved here for debugging purpose, might slow down everything 
+      
+      outputData.TTT[i] = TTT[i][2];
+      
+      //     fprintf(timeTags,"%f ",TTT[i]);
+      
+      //     printf("fine\n");
+      //    int ind;
+      //    for(ind = 0 ; ind < 1024 ; ind++){
+      outputData.Wave[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[RefChannel%8];
+      outputData.Trigger[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[8];
+      //    }
+      outputData.PulseEdgeTime[i] = -1; //set to -1 by default
+      outputData.TrEdgeTime[i] = -1;    //set to -1 by default
+    }
+    
+    //   if(1){
+    //     	  if (!ContinousWaveplot) {
+    //     	    plot = 0;
+    //     	  }
+    
+    event_file = fopen("event.txt", "w");
+    for(i=0; i < 1024; i++) {
+      fprintf(event_file, "%f\t%f\t%f\t%f\n", outputData.Wave[0][i],outputData.Trigger[0][i], outputData.Wave[1][i], outputData.Trigger[1][i]);
+    }
 //     int RefChannel =16; 
-//     fclose(event_file);
-//     fprintf(plotter, "set xlabel 'Samples' \n");
-//     fprintf(plotter, "plot 'event.txt' u 0:1 title 'Ch%d_Board0' w step,'event.txt' u 0:2 title 'TR%d_Board0' w step,'event.txt' u 0:3  title 'Ch%d_Board1' w step, 'event.txt' u 0:4 title 'TR%d_Board1' w step\n",
-//             RefChannel,(RefChannel/16),RefChannel, (RefChannel/16));
-//     fflush(plotter);
-//     tPrevWPlotTime = gCurrTime;
-//     sleep(1);
-//   }
+    fclose(event_file);
+    fprintf(plotter, "set xlabel 'Samples' \n");
+    fprintf(plotter, "plot 'event.txt' u 0:1 title 'Ch%d_Board0' w step,'event.txt' u 0:2 title 'TR%d_Board0' w step,'event.txt' u 0:3  title 'Ch%d_Board1' w step, 'event.txt' u 0:4 title 'TR%d_Board1' w step\n",
+            RefChannel,(RefChannel/16),RefChannel, (RefChannel/16));
+    fflush(plotter);
+    tPrevWPlotTime = gCurrTime;
+    //     sleep(1);
+  }
   
   
   
@@ -1440,10 +1565,10 @@ int cleanup_on_exit() {
   
   if(gWaveforms) free(gWaveforms);
   
-  for(i=0; i<MAX_CHANNELS; ++i) {
-    if (gListFiles[i] != NULL)
-      fclose(gListFiles[i]);
-  }
+//   for(i=0; i<MAX_CHANNELS; ++i) {
+//     if (gListFiles[i] != NULL)
+//       fclose(gListFiles[i]);
+//   }
   
   for(i=0; i<MAX_CHANNELS; ++i) {
     if (gEvent[i] != NULL)
@@ -1471,20 +1596,31 @@ int cleanup_on_exit() {
     ret = CAEN_DGTZ_CloseDigitizer(tHandle[i]);
   }
   
-  fclose(tttFile);
+//   fclose(tttFile);
+  
 //   for(i=0; i<gParams.NumOfV1742; i++) {  
-//     fclose(sStamps740[i]);
+//     fclose(sStamps742[i]);
 //   }
 //   free(sStamps740);
   
-  if(WRITE_DATA){
-    fclose(sStamps740);
+  free(Data742);
   
+  if(WRITE_DATA){
+    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+      fclose(sStamps740);
+    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+      fclose(binOut740);
   
     for(i=0; i<gParams.NumOfV1742; i++) {  
-      fclose(sStamps742[i]);
+      if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+        fclose(sStamps742[i]);
+      if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+        fclose(binOut742[i]);
     }
-    free(sStamps742);
+    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+      free(binOut742);
+    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+      free(sStamps742);
   }
   return 0;
   
@@ -1519,26 +1655,52 @@ int setup_acquisition(char *fname) {
     return -1; 
   }
   
-  tttFile      = fopen("ttt.txt","w");
+//   tttFile      = fopen("ttt.txt","w");
   
 //   sStamps740 = (FILE*) malloc (  sizeof(FILE*)) 
-  char stamps742FileName[50];
+  char stamps742FileName[50],b742FileName[50];
   unsigned int j;
   
   if(WRITE_DATA)
   {
-    sStamps742 = (FILE*) malloc ( gParams.NumOfV1742 * sizeof(FILE*));
+    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+      sStamps742 = (FILE*) malloc ( gParams.NumOfV1742 * sizeof(FILE*));
+    
+    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+      binOut742 = (FILE*) malloc ( gParams.NumOfV1742 * sizeof(FILE*));
+    
     for(j=0; j<gParams.NumOfV1742;j++)
     {
-      sprintf(stamps742FileName,"stamps742_%d.txt",j);
-      sStamps742[j] = fopen(stamps742FileName,"w");
+      if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+      {
+        sprintf(stamps742FileName,"stamps742_%d.txt",j);
+        sStamps742[j] = fopen(stamps742FileName,"w");
+      }
+      if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+      {
+        sprintf(b742FileName,"binary742_%d.dat",j);
+        binOut742[j] = fopen(b742FileName,"wb");
+      }
     }
-    sStamps740   = fopen("stamps740.txt","w");
+    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+      sStamps740   = fopen("stamps740.txt","w");
+    
+    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+      binOut740 = fopen("binary740.dat","wb");
+    
   }
+  
+//   if(OPTIMIZATION_RUN)
+//   {
+//     
+//   }
+  
 
   //   sStamps742_1 = fopen("stamps742_1.txt","w");
   
   
+  
+  Data742 = (Data742_t*) malloc(gParams.NumOfV1742 * sizeof(Data742_t));
   
   /* ---------------------------------------------------------------------------------------
    *    // Open the digitizer and read board information
@@ -1710,11 +1872,11 @@ int setup_acquisition(char *fname) {
   }
   
   /* Crete output list files (one per channel) */
-  for(i=0; i < gEquippedChannels; ++i) {
-    char filename[200];
-    sprintf(filename, "list_ch%d.txt", i);
-    if (gListFiles[i] == NULL) gListFiles[i] = fopen(filename, "w");	 
-  }
+//   for(i=0; i < gEquippedChannels; ++i) {
+//     char filename[200];
+//     sprintf(filename, "list_ch%d.txt", i);
+//     if (gListFiles[i] == NULL) gListFiles[i] = fopen(filename, "w");	 
+//   }
   
   
   //configure timing digitizer(s)
@@ -1735,7 +1897,7 @@ int setup_acquisition(char *fname) {
   
   //configure sync run
   // for charge digi
-  ret = SetSyncMode(gHandle,0);
+  ret = SetSyncMode(gHandle,0,gParams.RunDelay); 
   if (ret) {
     printf("\nError Configuring Sync Mode for Charge Digitizer\n");
     return -1;
@@ -1743,7 +1905,7 @@ int setup_acquisition(char *fname) {
   
   // for timing digi
   for(i=0 ; i < gParams.NumOfV1742 ; i++) {
-    ret = SetSyncMode(tHandle[i],1);
+    ret = SetSyncMode(tHandle[i],1,gParams.v1742_RunDelay[i]);
     if (ret) {
       printf("\nError Configuring Sync Mode for Timing Digitizer %d\n",i);
       return -1;
@@ -1764,7 +1926,10 @@ int setup_acquisition(char *fname) {
   }
   
   // Force Clock sync (should we?)
-  ForceClockSync(gHandle);
+  ForceClockSync(gHandle,tHandle,gParams.NumOfV1742);
+//   for(i = 0; i < gParams.NumOfV1742; i++) {
+//     ForceClockSync(tHandle[i]);
+//   }
   
   //CHECK REGISTERS FOR RUN PROPAGATION
 //   printf("\nCHECK REGISTERS FOR RUN PROPAGATION\n");
@@ -1815,7 +1980,7 @@ int setup_acquisition(char *fname) {
       CAEN_DGTZ_WriteRegister(gHandle, ADDR_RELOAD_PLL, 0);
       CAEN_DGTZ_WriteRegister(tHandle[0], ADDR_RELOAD_PLL, 0);
       CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_RELOAD_PLL, 0);
-      ForceClockSync(gHandle);
+      ForceClockSync(gHandle,tHandle,gParams.NumOfV1742);
       printf("PLL reloaded\n");
     }
     /*    for(unsigned int i=0; i < totalNumbOfDigi; i++)*/

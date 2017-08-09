@@ -31,6 +31,11 @@
 #define ACQMODE_LIST    0
 #define ACQMODE_MIXED   1
 
+#define OUTPUTMODE_TEXT    0
+#define OUTPUTMODE_BINARY  1
+#define OUTPUTMODE_BOTH    2
+
+
 #define CONNECTION_TYPE_USB    0
 #define CONNECTION_TYPE_OPT    1
 #define CONNECTION_TYPE_AUTO   255
@@ -82,6 +87,7 @@
 typedef struct 
 {
   // V1740D
+  uint32_t OutputMode;
   uint32_t ConnectionType;
   uint32_t ConnectionLinkNum;
   uint32_t ConnectionConetNode;
@@ -111,6 +117,7 @@ typedef struct
   uint32_t DefaultTriggerThr;
   uint32_t EnableExtendedTimeStamp;
   uint64_t ChannelTriggerMask;
+  uint32_t RunDelay;
   
   //V1742
   uint32_t NumOfV1742;                   //number of V1742 digitizers in the system - NB max is 8
@@ -124,6 +131,7 @@ typedef struct
   uint32_t v1742_StartMode;     
   uint32_t v1742_EnableLog;
   
+  
   uint32_t v1742_ConnectionType[8];
   uint32_t v1742_LinkNum[8];
   uint32_t v1742_ConetNode[8];
@@ -135,6 +143,7 @@ typedef struct
   uint32_t v1742_TRThreshold[8];         
   CAEN_DGTZ_TriggerPolarity_t v1742_ChannelPulseEdge[8];    
   uint32_t v1742_PostTrigger[8]; 
+  uint32_t v1742_RunDelay[8]; 
   
   uint32_t RegisterWriteBoard[64];                           // no more than 64 register writes, sorry...
   uint32_t RegisterWriteAddr[64];                           // no more than 64 register writes, sorry...
@@ -159,6 +168,20 @@ typedef struct
   float PulseEdgeTime[2];
   float TrEdgeTime[2];
 } OutputData_t;
+
+typedef struct
+{
+  double TTT;                                 /*Trigger time tag of the event, i.e. of the entire board (we always operate with common external trigger) */
+  uint16_t Charge[64];                        /*All 64 channels for now*/
+} Data740_t;
+
+typedef struct
+{
+  double TTT[4];                              /*Trigger time tag of the groups for this board */
+  double PulseEdgeTime[32];                 /*PulseEdgeTime for each channel in the group*/
+} Data742_t;
+
+
 
 /* Globals */
 // extern int	        gHandle;                                   /* CAEN library handle */
@@ -225,14 +248,14 @@ int  load_configuration_from_file(char * fname, BoardParameters *params);
 int  setup_parameters(BoardParameters *params, char *fname);
 int  configure_digitizer(int handle, int gEquippedGroups, BoardParameters *params);
 int  configure_timing_digitizers(/*int* tHandle,*/ BoardParameters *params);
-int  SetSyncMode(int handle, int timing);
-int  ForceClockSync(int handle);
+int  SetSyncMode(int handle, int timing, uint32_t runDelay);
+int  ForceClockSync(int handle,int tHandle[],int size);
 
 
 /* Utility functions prototypes */
 long get_time();
 void clear_screen( void );
-double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart);
+double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType);
 
 #ifdef LINUX
 #include <sys/time.h> /* struct timeval, select() */

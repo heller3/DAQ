@@ -2,6 +2,15 @@
 # Configuration file for DPP-PSD x740          #
 # ---------------------------------------------#
 
+
+
+#----------------------------------------------#
+# Output setup                                 # 
+#----------------------------------------------#
+
+OutputMode               BOTH                  # Output modality: TEXT / BINARY / BOTH (text files, binary files, both types of files)
+
+
 #----------------------------------------------#
 # Connection setup                             # 
 #----------------------------------------------#
@@ -158,7 +167,7 @@ TriggerThreshold         63 10
 
 NevAggr                  0                     # Number of event per aggregate (0= automatic)
 
-
+RunDelay                 0                    # Sync run delay in units of trigger clock (16 ns for V1740D digitizer)
 
 
 
@@ -206,6 +215,7 @@ v1742_ChannelThreshold           0    1500                  # Threshold for Time
 v1742_TRThreshold                0    1500                  # Threshold for Time Pulse Calculation
 v1742_ChannelPulseEdge           0    1                     # 0= Rising Edge, 1 = Falling Edge
 v1742_PostTrigger                0    0                     # Post trigger in percent of the acquisition window
+v1742_RunDelay                   0    0                    # Sync run delay in units of trigger clock ( 1/(2*58,59375) for v1742 digitizers) 
 
 # Register direct write, format:
 # RegisterWrite     <digitizer>  <address> <value>
@@ -232,6 +242,7 @@ v1742_ChannelThreshold           1    1500                  # Threshold for Time
 v1742_TRThreshold                1    1500                  # Threshold for Time Pulse Calculation
 v1742_ChannelPulseEdge           1    1                     # 0= Rising Edge, 1 = Falling Edge
 v1742_PostTrigger                1    0                     # Post trigger in percent of the acquisition window
+v1742_RunDelay                   1    0                     # Sync run delay in units of trigger clock ( 1/(2*58,59375) for v1742 digitizers) 
 
 # Register direct write, format:
 # RegisterWrite     <digitizer>  <address> <value>
