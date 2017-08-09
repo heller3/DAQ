@@ -48,7 +48,6 @@ int main(int argc,char **argv)
   }
   
   long long int counter = 0;
-//   std::cout << "Reading File " << file0 << "..." << std::endl;
   
   Data740_t ev740;
   while(fread((void*)&ev740, sizeof(ev740), 1, fIn) == 1)

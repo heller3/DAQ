@@ -1,4 +1,4 @@
-// g++ -o binRead742 ../binRead742.cpp 
+// g++ -o binReadEvent ../binReadEvent.cpp 
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,12 +21,13 @@
 #include <unistd.h>
 #include <stdint.h>
 
-
-typedef struct
+struct EventFormat_t
 {
-  double TTT[4];                              /*Trigger time tag of the groups for this board */
-  double PulseEdgeTime[32];                 /*PulseEdgeTime for each channel in the group*/
-} Data742_t;
+  double GlobalTTT;                         /*Trigger time tag of the event. For now, it's the TTT of the 740 digitizer */
+  uint16_t Charge[64];                      /*Integrated charge for all the channels of 740 digitizer*/
+  double PulseEdgeTime[64];                 /*PulseEdgeTime for each channel in both timing digitizers*/
+} __attribute__((__packed__));
+
 
 
 //----------------//
@@ -47,20 +48,18 @@ int main(int argc,char **argv)
   }
   
   long long int counter = 0;
-  int groups = 4;
-  int chPerGroup = 8;
   
-  Data742_t ev742;
-  while(fread((void*)&ev742, sizeof(ev742), 1, fIn) == 1)
+  EventFormat_t ev;
+  while(fread((void*)&ev, sizeof(ev), 1, fIn) == 1)
   {
-    std::cout << std::fixed << std::showpoint ;
-    for(int gr = 0 ; gr < groups ; gr ++)
+    std::cout << std::fixed << std::showpoint << std::setprecision(4) << ev.GlobalTTT << " ";
+    for(int i = 0 ; i < 64 ; i ++)
     {
-      std::cout << std::setprecision(4) << ev742.TTT[gr] << " ";
-      for(int ch = 0 ; ch < chPerGroup ; ch ++)
-      {
-        std::cout << std::setprecision(6) << ev742.PulseEdgeTime[gr * chPerGroup + ch] << " ";
-      }
+      std::cout << ev.Charge[i] << " ";
+    }
+    for(int i = 0 ; i < 64 ; i ++)
+    {
+      std::cout << std::setprecision(6) << ev.PulseEdgeTime[i] << " ";
     }
     std::cout << std::endl;
     counter++;

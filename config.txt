@@ -8,7 +8,7 @@
 # Output setup                                 # 
 #----------------------------------------------#
 
-OutputMode               BOTH                  # Output modality: TEXT / BINARY / BOTH (text files, binary files, both types of files)
+OutputMode               BINARY                  # Output modality: TEXT / BINARY / BOTH (text files, binary files, both types of files)
 
 
 #----------------------------------------------#

@@ -925,6 +925,49 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
  ** If software triggers are enabled, it generates a trigger prior to
  ** reading board data.
  */  
+
+// int calibrateDigitizerOffset(){
+//   int ret;
+//   unsigned int i,step;
+//   uint32_t     bsize;
+//   
+//   // basically, empty the current buffer
+//   /* Read a block of data from the 740 digitizer */
+//   ret = CAEN_DGTZ_ReadData(gHandle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, gAcqBuffer, &bsize); /* Read the buffer from the digitizer */
+//   /* Same for 742 digitizers*/
+//   for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
+//     ret |= CAEN_DGTZ_ReadData(tHandle[i], CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer742[i], &buffer742Size[i]);
+//   }
+//   
+//   for(step = 0 ; step < 1000 ; step++)
+//   {
+//     //send software triggers to all digitizers
+//     CAEN_DGTZ_SendSWtrigger(gHandle); 
+//     for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
+//       CAEN_DGTZ_SendSWtrigger(tHandle[i]); 
+//     }
+//     
+//     /* Read a block of data from the 740 digitizer */
+//     ret = CAEN_DGTZ_ReadData(gHandle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, gAcqBuffer, &bsize); /* Read the buffer from the digitizer */
+//     /* Same for 742 digitizers*/
+//     for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
+//       ret |= CAEN_DGTZ_ReadData(tHandle[i], CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer742[i], &buffer742Size[i]);
+//     }
+//     
+//     
+//     
+//     
+//     
+//   }
+//   
+//   
+//   
+//   return 0;
+// }
+
+
+
+
 int run_acquisition() {
   int ret;
   unsigned int i;
@@ -932,15 +975,21 @@ int run_acquisition() {
   uint32_t     bin;
   uint32_t     bsize;
   uint32_t     NumEvents740[MAX_CHANNELS];
-  uint32_t     NumEvents742[2] = {0,0};
-  CAEN_DGTZ_EventInfo_t  EventInfo[2];
-  char *EventPtr[2]={NULL, NULL};
-  float *Wave[2];
-  float *Trigger[2];
-  uint32_t EIndx[2]={0,0};
+  uint32_t     *NumEvents742;
+  
+  CAEN_DGTZ_EventInfo_t *EventInfo;
+  
+  char **EventPtr;
+//   float *Wave[2];
+//   float *Trigger[2];
+//   uint32_t EIndx[2]={0,0};
+  
+  NumEvents742 = (uint32_t*) calloc (gParams.NumOfV1742,sizeof(uint32_t));
+  EventInfo    = (CAEN_DGTZ_EventInfo_t*) calloc (gParams.NumOfV1742,sizeof(CAEN_DGTZ_EventInfo_t));
+  EventPtr     = (char**) calloc (gParams.NumOfV1742,sizeof(char*));
   
   memset(NumEvents740, 0, MAX_CHANNELS*sizeof(NumEvents740[0])); //set all NumEvents740 to 0
-  
+//   memset(NumEvents742, 0, gParams.NumOfV1742*sizeof(NumEvents742[0])); //set all NumEvents740 to 0
   
   /* Send a SW Trigger if requested by user */
   if (gSWTrigger) {
