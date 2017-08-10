@@ -9,7 +9,7 @@
 #----------------------------------------------#
 
 OutputMode               BINARY                # Output modality: TEXT / BINARY / BOTH (text files, binary files, both types of files)
-OutputWaves742           0                    # 1 = Write all 742 waves on a binary file, 0 = do not write (default) 
+OutputWaves742           1                    # 1 = Write all 742 waves on a binary file, 0 = do not write (default) 
 
 #----------------------------------------------#
 # Connection setup                             # 

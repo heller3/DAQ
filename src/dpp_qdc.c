@@ -1127,8 +1127,10 @@ int run_acquisition() {
             
             if(gParams.OutputWaves742)
             {
+              //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
+              fwrite(&TTT[i][gr],sizeof(double),1,trFile[i*4 + gr]); 
               unsigned int w;
-              for(w=0;w<nSamples;w++)
+              for(w=0;w<nSamples;w++) //then the wave
               {
                 fwrite(&Wave[w],sizeof(float),1,trFile[i*4 + gr]);
               }
@@ -1144,6 +1146,8 @@ int run_acquisition() {
               
               if(gParams.OutputWaves742)
               {
+                //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
+                fwrite(&TTT[i][gr],sizeof(double),1,waveFile[i*(4*8)+gr*(8)+ch]); 
                 unsigned int w;
                 for(w=0;w<nSamples;w++)
                 {
