@@ -1753,10 +1753,10 @@ int setup_acquisition(char *fname) {
   if(WRITE_DATA)
   {
     if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
-      sStamps742 = (FILE*) malloc ( gParams.NumOfV1742 * sizeof(FILE*));
+      sStamps742 = (FILE**) malloc ( gParams.NumOfV1742 * sizeof(FILE*));
     
     if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
-      binOut742 = (FILE*) malloc ( gParams.NumOfV1742 * sizeof(FILE*));
+      binOut742 = (FILE**) malloc ( gParams.NumOfV1742 * sizeof(FILE*));
     
     for(j=0; j<gParams.NumOfV1742;j++)
     {
@@ -1784,8 +1784,8 @@ int setup_acquisition(char *fname) {
     int groups = 4;
     int channelsPerGroup = 8;
     int gr,ch;
-    waveFile = (FILE*) malloc ( (gParams.NumOfV1742 * groups * channelsPerGroup) * sizeof(FILE*)); 
-    trFile =   (FILE*) malloc ( (gParams.NumOfV1742 * groups) * sizeof(FILE*)); 
+    waveFile = (FILE**) malloc ( (gParams.NumOfV1742 * groups * channelsPerGroup) * sizeof(FILE*)); 
+    trFile =   (FILE**) malloc ( (gParams.NumOfV1742 * groups) * sizeof(FILE*)); 
     
     for(j=0;j<gParams.NumOfV1742;j++) // loop on 742 digitizers
     {
