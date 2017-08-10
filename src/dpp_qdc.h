@@ -88,6 +88,7 @@ typedef struct
 {
   // V1740D
   uint32_t OutputMode;
+  uint32_t OutputWaves742;
   uint32_t ConnectionType;
   uint32_t ConnectionLinkNum;
   uint32_t ConnectionConetNode;

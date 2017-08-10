@@ -50,6 +50,8 @@ FILE **      sStamps742;
 
 FILE *       binOut740;
 FILE **      binOut742;
+FILE **      waveFile;
+FILE **      trFile;
 
 
 CAEN_DGTZ_BoardInfo_t             gBoardInfo;
@@ -221,6 +223,7 @@ void set_default_parameters(BoardParameters *params) {
   int i;
   
   params->OutputMode        = OUTPUTMODE_BINARY;
+  params->OutputWaves742    = 0;                   /*by default do not write each 742 wave on binary file*/
   params->RecordLength      = 200;		   /* Number of samples in the acquisition window (waveform mode only)    */
   params->PreTrigger        = 100;  		   /* PreTrigger is in number of samples                                  */
   params->ActiveChannel     = 0;			   /* Channel used for the data analysis (plot, histograms, etc...)       */
@@ -346,6 +349,8 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
           params->ConnectionType = CONNECTION_TYPE_OPT;
       }
       
+      if (strcmp(str, "OutputWaves742") == 0) 
+        fscanf(parameters_file, "%d", &params->OutputWaves742);
       
       if (strcmp(str, "ConnectionLinkNum") == 0) 
         fscanf(parameters_file, "%d", &params->ConnectionLinkNum);
@@ -1120,6 +1125,14 @@ int run_acquisition() {
             
             double TriggerEdgeTime = interpolateWithMultiplePoints(Wave, nSamples, gParams.v1742_TRThreshold[i], gParams.v1742_TriggerEdge, 0,1); // interpolate with line, Type = 1 means trigger wave 
             
+            if(gParams.OutputWaves742)
+            {
+              unsigned int w;
+              for(w=0;w<nSamples;w++)
+              {
+                fwrite(&Wave[w],sizeof(float),1,trFile[i*4 + gr]);
+              }
+            }
             
             unsigned int ch;
             for(ch = 0 ; ch < 8 ; ch ++)
@@ -1128,6 +1141,16 @@ int run_acquisition() {
               uint32_t nSamples = Event742[i]->DataGroup[gr].ChSize[ch];
               Wave = Event742[i]->DataGroup[gr].DataChannel[ch];
               double PulseEdgeTime = interpolateWithMultiplePoints(Wave, nSamples, gParams.v1742_ChannelThreshold[i], gParams.v1742_ChannelPulseEdge[i], 0,0); // interpolate with line, Type = 0 means pulse wave 
+              
+              if(gParams.OutputWaves742)
+              {
+                unsigned int w;
+                for(w=0;w<nSamples;w++)
+                {
+                  fwrite(&Wave[w],sizeof(float),1,waveFile[i*(4*8)+gr*(8)+ch]);
+                }
+              }
+            
               
               if(PulseEdgeTime >= 0)
               {
@@ -1671,6 +1694,19 @@ int cleanup_on_exit() {
     if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
       free(sStamps742);
   }
+  
+  if(gParams.OutputWaves742)
+  {
+    for(i=0; i<(gParams.NumOfV1742 * 32); i++) {
+      fclose(waveFile[i]);
+    }
+    for(i=0 ; i<(gParams.NumOfV1742 *4) ; i++)
+    {
+      fclose(trFile[i]);
+    }
+    free(trFile);
+    free(waveFile);
+  }
   return 0;
   
 }
@@ -1737,6 +1773,33 @@ int setup_acquisition(char *fname) {
     if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
       binOut740 = fopen("binary740.dat","wb");
     
+  }
+  
+  if(gParams.OutputWaves742)
+  {
+    int groups = 4;
+    int channelsPerGroup = 8;
+    int gr,ch;
+    waveFile = (FILE*) malloc ( (gParams.NumOfV1742 * groups * channelsPerGroup) * sizeof(FILE*)); 
+    trFile =   (FILE*) malloc ( (gParams.NumOfV1742 * groups) * sizeof(FILE*)); 
+    
+    for(j=0;j<gParams.NumOfV1742;j++) // loop on 742 digitizers
+    {
+      for(gr = 0 ; gr < groups ; gr++)
+      {
+        char TrFileName[30];
+        sprintf(TrFileName,"waveTR%d.dat",j*groups + gr); // TRn 
+        trFile[j*groups + gr] = fopen(TrFileName,"wb");
+        for(ch = 0 ; ch < channelsPerGroup ; ch++)
+        {
+          char waveFileName[30];
+          sprintf(waveFileName,"waveCh%d.dat",j*(groups*channelsPerGroup)+gr*(channelsPerGroup)+ch);
+          waveFile[j*(groups*channelsPerGroup)+gr*(channelsPerGroup)+ch] = fopen(waveFileName,"wb");
+        }
+      }
+      
+      
+    }
   }
   
 //   if(OPTIMIZATION_RUN)
