@@ -1,14 +1,16 @@
 // g++ -o interpolate ../interpolate.cpp
 
-// program to test interpolation methods
-// for the moment, finds 2 "baselines" and compute edge time as the time of passing the half distance between them
-// FIXME
-// the second baseline is approx (computation includes pat of the rise and of the fall)
-// the first baseline suffers from non ideal corrections (probably)
-// need to skip first bin of the wave (sometimes it's an outlier, need to find a workaround)
+/*
+program to test interpolation methods
+for the moment, finds 2 "baselines" and compute edge time as the time of passing the half distance between them
+FIXME
+the second baseline is approx (computation includes pat of the rise and of the fall)
+the first baseline suffers from non ideal corrections (probably)
+need to skip first bin of the wave (sometimes it's an outlier, need to find a workaround)
 
-// run this program in the folders where the waves are (waves name are hardcoded!!), then run the sort program on the results
- 
+run this program in the folders where the waves are (waves name are hardcoded!!), then run the sort program on the results
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
