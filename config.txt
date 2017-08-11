@@ -9,7 +9,7 @@
 #----------------------------------------------#
 
 OutputMode               BINARY                # Output modality: TEXT / BINARY / BOTH (text files, binary files, both types of files)
-OutputWaves742           1                    # 1 = Write all 742 waves on a binary file, 0 = do not write (default) 
+OutputWaves742           0                   # 1 = Write all 742 waves on a binary file, 0 = do not write (default) 
 
 #----------------------------------------------#
 # Connection setup                             # 
@@ -24,11 +24,12 @@ ConnectionVmeBaseAddress 33330000                     # VME Base Address : neede
 # Acquisition setup                            # 
 #----------------------------------------------#
 
-AcquisitionMode          LIST                 # Acquisition Mode: LIST or MIXED
+AcquisitionMode          LIST                  # Acquisition Mode: LIST or MIXED
 ChannelTriggerMask       FFFFFFFF              # Channel Trigger Mask 
-SaveList                 0                     # Enable list output files (1)
 EnableExtendedTimeStamp  0                     # 1 = 48-bit Timestamp + 16-bit baseline
 ActiveChannel            0                     # Active channel for data analysis (default=0 if unset)
+EnablePlots740           0                     # Enables plotting of events for 740 board (default = 0, no plotting) - channel defined by ActiveChannel
+EnablePlots742           0                      # 1 = Plots enabled for 742 digitizers (default = 0, no plotting) - channel defined by                                             
 
 #----------------------------------------------#
 # Input Signal settings                        # 
@@ -179,8 +180,7 @@ RunDelay                 0                    # Sync run delay in units of trigg
 #                                              #
 #----------------------------------------------#
 
-NumOfV1742              2                      # Number of Timing digitizers connected. If not set, default = 0
-                                               # MAX = 8
+NumOfV1742              2                      # Number of Timing digitizers connected. If not set, default = 0, MAX = 8
 
 v1742_TriggerEdge       1     # Trigger edge (CAEN_DGTZ_TriggerOnRisingEdge = 0, CAEN_DGTZ_TriggerOnFallingEdge = 1)
 v1742_RecordLength      1024  # Number of samples in the acquisition windows (Valid Options: 1024, 520, 256 and 136)

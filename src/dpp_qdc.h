@@ -101,6 +101,10 @@ typedef struct
   uint32_t ChargeSensitivity;
   uint32_t FixedBaseline;
   uint32_t BaselineMode;
+  uint32_t EnablePlots740;
+  uint32_t EnablePlots742;
+  uint32_t Groups742;
+  uint32_t ChannelsPerGroup742;
   uint32_t TrgMode;
   uint32_t TrgSmoothing;
   uint32_t TrgHoldOff;

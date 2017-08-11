@@ -26,6 +26,7 @@ long         gPrevTime;
 long         gPrevWPlotTime;
 long         gPrevHPlotTime;
 long         tPrevWPlotTime;
+long         gPrev740PlotTime;
 
 long         gRunStartTime;
 long         gRunElapsedTime;
@@ -234,6 +235,10 @@ void set_default_parameters(BoardParameters *params) {
   params->TrgMode           = 0;             /* */
   params->TrgSmoothing      = 0;             /* */
   params->SaveList          = 0;             /*  Set flag to save list events to file */
+  params->EnablePlots740    = 0;             /* = 0 Disables plotting of 740 waves and histo */
+  params->EnablePlots742    = 0;             /* = 0 Disables plotting of 742 waves */
+  params->Groups742         = 4;             /* SET BY DEFAULT */
+  params->ChannelsPerGroup742         = 8;      /* SET BY DEFAULT */
   params->DCoffset[0]       = 0x8000;        /* DC offset adjust in DAC counts (0x8000 = mid scale)  */
   params->DCoffset[1]       = 0x8000;        /* DC offset adjust in DAC counts (0x8000 = mid scale)  */
   params->DCoffset[2]       = 0x8000;        /* DC offset adjust in DAC counts (0x8000 = mid scale)  */
@@ -367,6 +372,13 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       
       if (strcmp(str, "RecordLength") == 0) 
         fscanf(parameters_file, "%d", &params->RecordLength);
+      
+      if (strcmp(str, "EnablePlots740") == 0) 
+        fscanf(parameters_file, "%d", &params->EnablePlots740);
+      
+      if (strcmp(str, "EnablePlots742") == 0) 
+        fscanf(parameters_file, "%d", &params->EnablePlots742);
+      
       if (strcmp(str, "PreTrigger") == 0)
         fscanf(parameters_file, "%d", &params->PreTrigger);
       if (strcmp(str, "ActiveChannel") == 0) 
@@ -975,8 +987,7 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
 
 int run_acquisition() {
   int ret;
-  unsigned int i;
-  unsigned int j;
+  unsigned int i,j,k;
   uint32_t     bin;
   uint32_t     bsize;
   uint32_t     NumEvents740[MAX_CHANNELS];
@@ -1040,40 +1051,107 @@ int run_acquisition() {
     unsigned int i,j;
     for(j=0;j<NumEvents740[0];j++) //time tags are the same for all channels because we trigger on a common external signal
     {
+      //Calculate trigger time tag taking roll over into account 
       if (gEvent[0][j].TimeTag < temp_gPrevTimeTag)    
         temp_gETT++;
       temp_gExtendedTimeTag = ( (temp_gETT << 32) + (uint64_t)(gEvent[0][j].TimeTag));
       realTime740 = temp_gExtendedTimeTag * 16.0;
       temp_gPrevTimeTag = gEvent[0][j].TimeTag;
       
-      if(WRITE_DATA)
+      if(WRITE_DATA) // prepare write TTT to output if enabled
       {
         if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
           Data740.TTT = realTime740;
         
         if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
           fprintf(sStamps740,"%f ", realTime740);
-        for (i=0; i < gEquippedChannels; ++i) 
-        { 
+      }
+      
+      for (i=0; i < gEquippedChannels; ++i) //run on all channels
+      {
+        
+        gEvCnt[i]++;
+        uint32_t Charge;       
+        Charge = (gEvent[i][j].Charge & 0xFFFF);  /* rebin charge to 4Kchannels */
+        
+        /*Update energy histogram*/
+        if ((Charge < HISTO_NBIN) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT) && (gEvent[i][j].Overrange == 0))
+          gHisto[i][Charge]++;
+        
+        
+        if(gParams.EnablePlots740)
+        {
+          //---------------------------------//
+          // PLOTS for x740
+          //---------------------------------//
+          
+          if(i==gActiveChannel)
+          {
+            /* Plot Charge Histogram */
+            if ((gCurrTime-gPrev740PlotTime) > 1000) 
+            {              
+              gPlotDataFile = fopen("PlotData.txt", "w");
+              for(bin=0; bin<HISTO_NBIN; bin++)
+                fprintf(gPlotDataFile, "%d\n", gHisto[gActiveChannel][bin]);
+              fclose(gPlotDataFile);
+              fprintf(gHistPlotFile, "set term x11 noraise nopersist\n");
+              fprintf(gHistPlotFile, "plot 'PlotData.txt' with step ti 'Ch %d - Events %ld'\n",gActiveChannel,gEvCnt[i]);
+              fflush(gHistPlotFile);            
+              
+              /* Plot Waveforms (if enabled) */ 
+              if (/*(i==gActiveChannel) && */(gParams.AcqMode == ACQMODE_MIXED) /*&& (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT)*/) 
+              {
+                _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+                gPlotDataFile = fopen("PlotWave.txt", "w");
+                
+                for(k=0; k<gWaveforms->Ns; k++) {
+                  fprintf(gPlotDataFile, "%d ", gWaveforms->Trace1[k]);                 /* samples */
+                  fprintf(gPlotDataFile, "%d ", 2000 + 200 *  gWaveforms->DTrace1[k]);  /* gate    */
+                  fprintf(gPlotDataFile, "%d ", 1000 + 200 *  gWaveforms->DTrace2[k]);  /* trigger */
+                  fprintf(gPlotDataFile, "%d ", 500 + 200 *  gWaveforms->DTrace3[k]);   /* trg hold off */
+                  fprintf(gPlotDataFile, "%d\n", 100 + 200 *  gWaveforms->DTrace4[k]);  /* overthreshold */
+                }
+                fclose(gPlotDataFile);
+                fprintf(gWavePlotFile, "set term x11 noraise nopersist\n");
+                fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Input' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
+                fflush(gWavePlotFile);
+                //             gPrevWPlotTime = gCurrTime;
+              }
+              gPrev740PlotTime = gCurrTime;
+              
+            }
+          }
+          //------------- End of PLOTS for x740
+        }
+        
+        if(WRITE_DATA) // prepare write data of this channel on output if enabled
+        {
           if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
             fprintf(sStamps740,"%u ",(gEvent[i][j].Charge & 0xFFFF));
           if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
             Data740.Charge[i] = (gEvent[i][j].Charge & 0xFFFF);
         }
+      }
+      
+      if(WRITE_DATA) // write data on output files if enabled
+      {
         if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
           fprintf(sStamps740,"\n");
         if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
           fwrite(&Data740,sizeof(Data740_t),1,binOut740);
       }
     }
+    
   }
+  
+  
   
     
   
   //analyze V1742 data 
   for(i = 0 ; i < gParams.NumOfV1742 ; i++) 
   {  
-    int RefChannel =16; 
+//     int RefChannel =16; 
     ret |= CAEN_DGTZ_GetNumEvents(tHandle[i], buffer742[i], buffer742Size[i], &NumEvents742[i]);
     if (ret) {
       printf("Readout Error\n");
@@ -1093,7 +1171,7 @@ int run_acquisition() {
         unsigned int gr;
         
         //save all time tags of each v1742 digitizer
-        for(gr = 0 ; gr < 4 ; gr++)
+        for(gr = 0 ; gr < gParams.Groups742 ; gr++)
         {
           if (Event742[i]->GrPresent[gr])
           {
@@ -1117,41 +1195,46 @@ int run_acquisition() {
             
 //             ApplyDataCorrection(gr, 7,gParams.v1742_DRS4Frequency, &(Event742[i]->DataGroup[gr]), &Table[i]);
 //             
-            float *Wave;
+            float *TriggerWave;
+            float *ChannelWave;
             
             //interpolate the trigger wave
-            uint32_t nSamples = Event742[i]->DataGroup[gr].ChSize[8];
-            Wave = Event742[i]->DataGroup[gr].DataChannel[8]; //see ./home/caenvme/Programs/CAEN/CAENDigitizer_2.7.1/include
+            uint32_t nSamplesTR = Event742[i]->DataGroup[gr].ChSize[8];
+            TriggerWave = Event742[i]->DataGroup[gr].DataChannel[8]; //see ./home/caenvme/Programs/CAEN/CAENDigitizer_2.7.1/include
             
-            double TriggerEdgeTime = interpolateWithMultiplePoints(Wave, nSamples, gParams.v1742_TRThreshold[i], gParams.v1742_TriggerEdge, 0,1); // interpolate with line, Type = 1 means trigger wave 
+            double TriggerEdgeTime = interpolateWithMultiplePoints(TriggerWave, nSamplesTR, gParams.v1742_TRThreshold[i], gParams.v1742_TriggerEdge, 0,1); // interpolate with line, Type = 1 means trigger wave 
             
             if(gParams.OutputWaves742)
             {
               //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
-              fwrite(&TTT[i][gr],sizeof(double),1,trFile[i*4 + gr]); 
+              fwrite(&TTT[i][gr],sizeof(double),1,trFile[i*gParams.Groups742 + gr]); 
               unsigned int w;
-              for(w=0;w<nSamples;w++) //then the wave
+              for(w=0;w<nSamplesTR;w++) //then the wave
               {
-                fwrite(&Wave[w],sizeof(float),1,trFile[i*4 + gr]);
+                fwrite(&TriggerWave[w],sizeof(float),1,trFile[i*gParams.Groups742 + gr]);
               }
             }
             
             unsigned int ch;
-            for(ch = 0 ; ch < 8 ; ch ++)
+            for(ch = 0 ; ch < gParams.ChannelsPerGroup742 ; ch ++)
             {
+              
+              
               //interpolate the wave
-              uint32_t nSamples = Event742[i]->DataGroup[gr].ChSize[ch];
-              Wave = Event742[i]->DataGroup[gr].DataChannel[ch];
-              double PulseEdgeTime = interpolateWithMultiplePoints(Wave, nSamples, gParams.v1742_ChannelThreshold[i], gParams.v1742_ChannelPulseEdge[i], 0,0); // interpolate with line, Type = 0 means pulse wave 
+              uint32_t nSamplesCH = Event742[i]->DataGroup[gr].ChSize[ch];
+              ChannelWave = Event742[i]->DataGroup[gr].DataChannel[ch];
+              double PulseEdgeTime = interpolateWithMultiplePoints(ChannelWave, nSamplesCH, gParams.v1742_ChannelThreshold[i], gParams.v1742_ChannelPulseEdge[i], 0,0); // interpolate with line, Type = 0 means pulse wave 
+              
+              
               
               if(gParams.OutputWaves742)
               {
                 //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
-                fwrite(&TTT[i][gr],sizeof(double),1,waveFile[i*(4*8)+gr*(8)+ch]); 
+                fwrite(&TTT[i][gr],sizeof(double),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch]); 
                 unsigned int w;
-                for(w=0;w<nSamples;w++)
+                for(w=0;w<nSamplesCH;w++)
                 {
-                  fwrite(&Wave[w],sizeof(float),1,waveFile[i*(4*8)+gr*(8)+ch]);
+                  fwrite(&ChannelWave[w],sizeof(float),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch]);
                 }
               }
             
@@ -1162,7 +1245,7 @@ int run_acquisition() {
                 if(WRITE_DATA)
                 {
                   if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
-                    Data742[i].PulseEdgeTime[gr * 8 + ch] = PulseEdgeTime;
+                    Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = PulseEdgeTime;
                   if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
                     fprintf(sStamps742[i],"%f ",PulseEdgeTime);             
                 }
@@ -1172,13 +1255,36 @@ int run_acquisition() {
                 if(WRITE_DATA)
                 {
                   if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
-                    Data742[i].PulseEdgeTime[gr * 8 + ch] = 0;
+                    Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = 0;
                   if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
                     fprintf(sStamps742[i],"%f ",0);             
                 }
               }
               
               
+              //---------------------------------//
+              // PLOT WAVES
+              //---------------------------------//
+              if(gParams.EnablePlots742)
+              {
+                if( (i*gParams.Groups742*gParams.ChannelsPerGroup742 + gr*gParams.ChannelsPerGroup742 + ch) == gActiveChannel)
+                {
+                  if((gCurrTime-tPrevWPlotTime) > 1000)
+                  {
+                    event_file = fopen("PlotWave742.txt", "w");
+                    for(k=0; k < nSamplesCH; k++) {  //nSamplesCH and nSamplesTR should be the same...
+                      fprintf(event_file, "%f ", TriggerWave[k]);
+                      fprintf(event_file, "%f\n", ChannelWave[k]);
+                    }
+                    fclose(event_file);
+                    fprintf(plotter, "set term x11 noraise nopersist\n");
+                    fprintf(plotter, "set xlabel 'Samples' \n");
+                    fprintf(plotter, "plot 'PlotWave742.txt' u 0:1 title 'Trigger_%d' w step,'PlotWave742.txt' u 0:2 title 'Channel_%d' w step\n",gActiveChannel,gActiveChannel);
+                    fflush(plotter);
+                    tPrevWPlotTime = gCurrTime;
+                  }
+                }
+              }
             }           
           }
           else
@@ -1204,371 +1310,18 @@ int run_acquisition() {
             fwrite(&Data742[i],sizeof(Data742_t),1,binOut742[i]);
         }
       }
+       
       
-      
-      
-      
-      
-      
-//       outputData.TTT[i] = TTT[i];
-//       
-//       //    fprintf(timeTags,"%f ",TTT[i]);
-//       
-//       //     printf("fine\n");
-//       //    int ind;
-//       //    for(ind = 0 ; ind < 1024 ; ind++){
-//       outputData.Wave[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[RefChannel%8];
-//       outputData.Trigger[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[8];
-//       //    }
-//       outputData.PulseEdgeTime[i] = -1; //set to -1 by default
-//       outputData.TrEdgeTime[i] = -1;    //set to -1 by default
     }
     
-    
 
-    
-//   for(i=0; i<2; i++) 
-//   { // get the wave regardless of any time stamp consideration
-//     ApplyDataCorrection((Params.RefChannel[i]/8), 7,Params.DRS4Frequency, &(Event742[i]->DataGroup[Params.RefChannel[i]/8]), &Table[i]); //correct data every time. this was moved here for debugging purpose, might slow down everything 
-    
-    
-//   }
-
-
-	
-	
-    
-    
-    
-//     tPrevWPlotTime = gCurrTime;
   }
-  
-//   if(NumEvents740 && NumEvents742[0] && NumEvents742[1])
-//   {
-//     //clear_screen();
-//     //printf("TTT 740   %f\n",realTime740);  
-//     //printf("TTT 742_1 %f\n",TTT[0]);
-//     //printf("TTT 742_2 %f\n",TTT[1]);
-//     fprintf(tttFile,"%lf %lf %lf %lf %lf\n",realTime740,TTT[0],TTT[1],(TTT[0]-realTime740)/*/1000000*/,(TTT[1]-TTT[0])/*/1000000*/);
-// //     if (((TTT[0]-realTime740)/1000000)>100) printf("TTT 740   %f\n",(TTT[0]-realTime740)/1000000);
-// //     event_file = fopen("event.txt", "w");
-// //     for(i=0; i < 1024; i++) {
-// //       fprintf(event_file, "%f\t%f\t%f\t%f\n", outputData.Wave[0][i],outputData.Trigger[0][i], outputData.Wave[1][i], outputData.Trigger[1][i]);
-// //     }
-// //     int RefChannel =16; 
-// //     fclose(event_file);
-// //     fprintf(plotter, "set xlabel 'Samples' \n");
-// //     fprintf(plotter, "plot 'event.txt' u 0:1 title 'Ch%d_Board0' w step,'event.txt' u 0:2 title 'TR%d_Board0' w step,'event.txt' u 0:3  title 'Ch%d_Board1' w step, 'event.txt' u 0:4 title 'TR%d_Board1' w step\n",
-// // 	    RefChannel,(RefChannel/16),RefChannel, (RefChannel/16));
-// //     fflush(plotter);
-//   }
-//   else
-//   {
-//     return 0; 
-//   }
-  
-  
-  
-//   while(1)
-//   {
-//     for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
-//       //////modified apolesel///////////////////////////////////////
-//       if (GetNextEvent[i]) {
-// 	if (EIndx[i] >= NumEvents742[i]) {
-// 	  EIndx[i] = 0;
-// 	  ret = CAEN_DGTZ_ReadData(tHandle[i], CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer742[i], &buffer742Size[i]);
-// 	  
-// 	  if (buffer742Size[i]>0)
-// 	    ret=ret;
-// 	  //     printf("buffersize %d\n",buffer742Size[i]);
-// 	    ret |= CAEN_DGTZ_GetNumEvents(tHandle[i], buffer742[i], buffer742Size[i], &NumEvents742[i]);
-// 	    if (ret) {
-// 	      printf("Readout Error\n");
-// 	      return -1;
-// 	    }
-// 	}
-// 	//     printf("NumEvents742[%d] = %d\n",i,NumEvents742[i]);
-// 	// //     printf("NumEvents[1] = %d\n",NumEvents[1]);
-// 	
-// 	
-// 	if (NumEvents742[i]) {
-// 	  //printf("INSIDE NumEvents742[%d] = %d\n",i,NumEvents742[i]);
-// 	  // 	      printf("EIndx[%d] = %d\n",i,EIndx[i]);
-// 	  
-// 	  //test 
-// 	  //EIndx[i] = 0; //FIXME ???
-// 	  
-// 	  ret = CAEN_DGTZ_GetEventInfo(tHandle[i], buffer742[i], buffer742Size[i], EIndx[i], &EventInfo[i], &EventPtr[i]);
-// 	  ret = CAEN_DGTZ_DecodeEvent(tHandle[i], EventPtr[i], (void**)&Event742[i]);
-// 	  // //       TrgCnt[i]++;
-// 	  if (ret) {
-// 	    printf("Event build error\n");
-// 	    // 	goto QuitProgram;
-// 	    return -1;
-// 	  }
-// 	  GetNextEvent[i]=0;
-// 	}
-//       }
-//       ////////////////////////////////////////////////////
-//       
-//     }
-//     if (GetNextEvent[0] || GetNextEvent[1])  // missing data from one or both boards
-//             continue;
-//     
-//     //TEMP REF CHANNEL
-//     int RefChannel = 16; 
-//     //   double TTT[2];
-//     Tt = 8.533333; // step per il Local_TTT
-//     Ts = 0.2;
-// 
-//     // ----------------------------------------------------------------
-//     // Analyze data
-//     // ----------------------------------------------------------------
-//     // calculate extended Trigger Time Tag (take roll over into account)
-//     for(i=0; i<2; i++) 
-//     {
-//       if (Event742[i]->GrPresent[(RefChannel/8)])
-//       {
-//         TTT[i] = ((Nroll[i]<<30) + (Event742[i]->DataGroup[(RefChannel/8)].TriggerTimeTag & 0x3FFFFFFF))*Tt;
-//         if (TTT[i] < PrevTTT[i]) 
-// 	{
-//           Nroll[i]++;
-//           TTT[i] += (1<<30)*Tt;
-//         }
-//         PrevTTT[i] = TTT[i];
-//       }
-//       else
-//       {
-//     //       EvNoData[i]++;
-//       }
-//     }
-//     ///////////////////modified apolesel//////////////////////////////////////////
-//     
-//     // use only events whose time stamp differ of less than the matching window:
-//     // CASE1: board 0 is behind board 1; keep event from 1 and take next event from 0
-//     if (TTT[0] < (TTT[1] - gParams.v1742_MatchingWindow*Tt)) 
-//     {
-//       EIndx[0]++; 
-//       // 	    printf("board 0 is behind board 1\n");
-//       GetNextEvent[0]=1;
-//       continue;
-//       // CASE2: board 1 is behind board 0; keep event from 0 and take next event from 1
-//     } 
-//     else if (TTT[1] < (TTT[0] - gParams.v1742_MatchingWindow*Tt)) 
-//     {
-//       EIndx[1]++; 
-//       GetNextEvent[1]=1;
-//       // 	    printf("board 1 is behind board 0\n");
-//       continue;
-//       // CASE3: trigger time tags match: calculate DeltaT between edges
-//     } 
-//     else 
-//     {  
-//       // 	  printf("Accepted\n");
-//       MatchingEvents++;
-//       
-//       printf("Delta TTT = %f \n",TTT[1]-TTT[0]);
-//       
-// //       for(i=0; i<2; i++) 
-// //       {
-// // 	EIndx[i]++;
-// // 	GetNextEvent[i]=1;  
-// //       }
-//       break; //FIXME correct?
-//     }
-//     
-//     ////////////////////////////////////////////////////////////////////////////
-//     
-//     
-//   }
-  
-
-
-  
-  
-  
-  
-  
-//   timeTags = fopen("timeTags.txt", "a");
-  //printf("%f %f\n",TTT[0],TTT[1]);
-  
-  
-  
-  
-  
-  
-  
- 
-  
-  
-  
-  
-//   Plot Waveforms
-  int plotWaveforms = 0; //for now set here //FIXME
-  
-  
-  
-  if (plotWaveforms && ((gCurrTime-tPrevWPlotTime) > 2000) )   {
-    
-    OutputData_t outputData;
-    int RefChannel =16; 
-    for(i=0; i<2; i++) 
-    { // get the wave regardless of any time stamp consideration
-      
-      //     ApplyDataCorrection(RefChannel, 7,gParams.v1742_DRS4Frequency, &(Event742[i]->DataGroup[Params.RefChannel[i]/8]), &Table[i]); //correct data every time. this was moved here for debugging purpose, might slow down everything 
-      
-      outputData.TTT[i] = TTT[i][2];
-      
-      //     fprintf(timeTags,"%f ",TTT[i]);
-      
-      //     printf("fine\n");
-      //    int ind;
-      //    for(ind = 0 ; ind < 1024 ; ind++){
-      outputData.Wave[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[RefChannel%8];
-      outputData.Trigger[i] = Event742[i]->DataGroup[RefChannel/8].DataChannel[8];
-      //    }
-      outputData.PulseEdgeTime[i] = -1; //set to -1 by default
-      outputData.TrEdgeTime[i] = -1;    //set to -1 by default
-    }
-    
-    //   if(1){
-    //     	  if (!ContinousWaveplot) {
-    //     	    plot = 0;
-    //     	  }
-    
-    event_file = fopen("event.txt", "w");
-    for(i=0; i < 1024; i++) {
-      fprintf(event_file, "%f\t%f\t%f\t%f\n", outputData.Wave[0][i],outputData.Trigger[0][i], outputData.Wave[1][i], outputData.Trigger[1][i]);
-    }
-//     int RefChannel =16; 
-    fclose(event_file);
-    fprintf(plotter, "set xlabel 'Samples' \n");
-    fprintf(plotter, "plot 'event.txt' u 0:1 title 'Ch%d_Board0' w step,'event.txt' u 0:2 title 'TR%d_Board0' w step,'event.txt' u 0:3  title 'Ch%d_Board1' w step, 'event.txt' u 0:4 title 'TR%d_Board1' w step\n",
-            RefChannel,(RefChannel/16),RefChannel, (RefChannel/16));
-    fflush(plotter);
-    tPrevWPlotTime = gCurrTime;
-    //     sleep(1);
-  }
-  
-  
-  
-  
-  
-  /* Loop over all channels and events */
-//   for (i=0; i < gEquippedChannels; ++i) {              
-//     for(j=0; j<NumEvents[i]; ++j) {
-//       
-//       
-//       
-//       uint32_t Charge;
-//       
-//       Charge = (gEvent[i][j].Charge & 0xFFFF);  /* rebin charge to 4Kchannels */
-//       
-//       
-//       /* Update energy histogram */
-//       if ((Charge < HISTO_NBIN) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT) && (gEvent[i][j].Overrange == 0))
-//         gHisto[i][Charge]++;
-//       
-//       /* Plot Histogram */
-//       if ((gCurrTime-gPrevHPlotTime) > 2000) {
-//         gPlotDataFile = fopen("PlotData.txt", "w");
-//         for(bin=0; bin<HISTO_NBIN; bin++)
-//           fprintf(gPlotDataFile, "%d\n", gHisto[gActiveChannel][bin]);
-//         fclose(gPlotDataFile);
-//         fprintf(gHistPlotFile, "plot 'PlotData.txt' with step\n");
-//         fflush(gHistPlotFile);
-//         gPrevHPlotTime = gCurrTime;
-//       }
-//       
-//       /* Check roll over of time tag */
-//       if (gEvent[i][j].TimeTag < gPrevTimeTag[i])    
-//         gETT[i]++;
-//       
-//       gExtendedTimeTag[i] = (gETT[i] << 32) + (uint64_t)(gEvent[i][j].TimeTag);
-//       
-//       
-//       /* Save event to output file */
-//       if (gParams.SaveList) { 
-//         fprintf(gListFiles[i], "%16llu %8d\n", gExtendedTimeTag[i], gEvent[i][j].Charge);
-//       }
-//       
-//       if (i==gActiveChannel)
-//       {
-//         fprintf(timeTags,"%16llu %f %16llu\n",gExtendedTimeTag[i],TTT[1]-TTT[0],gExtendedTimeTag[i]-TTT[0]);
-// 	//printf("%f %f %16llu %f %16llu\n",TTT[0],TTT[1],gExtendedTimeTag[i],TTT[1]-TTT[0],gExtendedTimeTag[i]-TTT[0]);  
-// 	
-//       }
-//       
-//       /* Plot Waveforms (if enabled) */
-//       if ((i==gActiveChannel) && (gParams.AcqMode == ACQMODE_MIXED) && ((gCurrTime-gPrevWPlotTime) > 2000) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT)) {
-//         _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
-//         gPlotDataFile = fopen("PlotWave.txt", "w");
-//         for(j=0; j<gWaveforms->Ns; j++) {
-//           fprintf(gPlotDataFile, "%d ", gWaveforms->Trace1[j]);                 /* samples */
-//           fprintf(gPlotDataFile, "%d ", 2000 + 200 *  gWaveforms->DTrace1[j]);  /* gate    */
-//           fprintf(gPlotDataFile, "%d ", 1000 + 200 *  gWaveforms->DTrace2[j]);  /* trigger */
-//           fprintf(gPlotDataFile, "%d ", 500 + 200 *  gWaveforms->DTrace3[j]);   /* trg hold off */
-//           fprintf(gPlotDataFile, "%d\n", 100 + 200 *  gWaveforms->DTrace4[j]);  /* overthreshold */
-//         }
-//         fclose(gPlotDataFile);
-//         
-//         
-//         
-//         
-//         switch (gAnalogTrace) {
-//           case 0:
-//             fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Input' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
-//             break;
-//           case 1:
-//             fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Smooth' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
-//             break;
-//           case 2:
-//             fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Baseline' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
-//             break;
-//           default:
-//             fprintf(gWavePlotFile, "plot 'PlotWave.txt' u 1 t 'Input' w step, 'PlotWave.txt' u 2 t 'Gate' w step, 'PlotWave.txt' u 3 t 'Trigger' w step, 'PlotWave.txt' u 4 t 'TrgHoldOff' w step, 'PlotWave.txt' u 5 t 'OverThr' w step\n");
-//             break;
-//         }
-//         
-//         fflush(gWavePlotFile);
-//         gPrevWPlotTime = gCurrTime;
-//       }
-//       
-//       
-//       gPrevTimeTag[i]   = gEvent[i][j].TimeTag;
-//     }
-//     
-//     
-//     gEvCnt[i]        += NumEvents[i];
-//     if (gToggleTrace) {
-//       
-//       switch (gAnalogTrace) {
-//         case 0:
-//           CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 3<<12);
-//           break;
-//         case 1:
-//           CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 1<<12);
-//           CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 1<<13);
-//           break;
-//         case 2:
-//           CAEN_DGTZ_WriteRegister(gHandle, 0x8008, 1<<12);
-//           CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 1<<13);
-//           break;
-//         default:
-//           CAEN_DGTZ_WriteRegister(gHandle, 0x8004, 3<<12);
-//           break;
-//       }
-//       
-//       
-//       gToggleTrace = 0;
-//     }
-//     
-//   }
-//   /* END OF Loop over all channels and events */
   
   
   gAcqStats.nb += bsize;
-//   fclose(timeTags);
+  for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
+    gAcqStats.nb += buffer742Size[i];
+  }
   return 0;
   
 }
