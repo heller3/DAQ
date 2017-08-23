@@ -3,16 +3,16 @@
 
 //-------------------------------------------
 // converts binary data from single boards to a combined event file
-// 
+//
 // cycle over the first N (N=5000) events of the input to find the time offsets
-// then restart from the beginning of the dataset and import data using the offset previously found to correct the trigger time tags. 
-// It then sorts the events of the different boards in global events, using as criterium the corrected trigger time tags. 
-// The events will be saved in a file called 
-// 
+// then restart from the beginning of the dataset and import data using the offset previously found to correct the trigger time tags.
+// It then sorts the events of the different boards in global events, using as criterium the corrected trigger time tags.
+// The events will be saved in a file called
+//
 // events.dat
-// 
+//
 // while some histograms are saved in the root file
-// 
+//
 // histograms.root
 //-------------------------------------------
 
@@ -78,7 +78,7 @@ struct EventFormat_t
 //----------------//
 int main(int argc,char **argv)
 {
-  
+
   //----------------------------//
   // PARAMETERS
   //----------------------------//
@@ -89,7 +89,7 @@ int main(int argc,char **argv)
   float tolerance = 6.0;               // N of sigmas for accepting a simultaneous event
   int Nbins = 100;                     // N of bins in the fast histograms for time alignment
   //---------------------------
-  
+
   gStyle->SetOptFit(1);
   if(argc < 3)
   {
@@ -106,19 +106,19 @@ int main(int argc,char **argv)
   std::vector<Data740_t> input740;
   std::vector<Data742_t> input742_0;
   std::vector<Data742_t> input742_1;
-  
+
   TCanvas *c1 = new TCanvas("c1","c1",1200,800);   //useless but avoid root output
-  
+
   FILE * in0 = NULL;
   FILE * in1 = NULL;
   FILE * in2 = NULL;
-  
+
   in0 = fopen(file0, "rb");
   in1 = fopen(file1, "rb");
   in2 = fopen(file2, "rb");
-  
+
   long long int counter = 0;
-  
+
   //------------------------------//
   // FAST READING FOR OFFSETS
   //------------------------------//
@@ -126,7 +126,7 @@ int main(int argc,char **argv)
   Data740_t ev740;
   while(fread((void*)&ev740, sizeof(ev740), 1, in0) == 1)
   {
-    
+
     counter++;
     if(counter == eventsForCalibration) break;
     input740.push_back(ev740);
@@ -137,12 +137,12 @@ int main(int argc,char **argv)
   {
     counter++;
     if(counter == eventsForCalibration) break;
-    input742_0.push_back(ev742); 
+    input742_0.push_back(ev742);
   }
   counter = 0;
   while(fread((void*)&ev742, sizeof(ev742), 1, in2) == 1)
   {
-    
+
     counter++;
     if(counter == eventsForCalibration) break;
     input742_1.push_back(ev742);
@@ -162,39 +162,39 @@ int main(int argc,char **argv)
   double delta740to742_0 = gaussFast0->GetParameter(1);
   double delta740to742_1 = gaussFast1->GetParameter(1);
   double sigmaT = gaussFast0->GetParameter(2);
-  if( gaussFast1->GetParameter(2) >  sigmaT) 
+  if( gaussFast1->GetParameter(2) >  sigmaT)
     sigmaT = gaussFast1->GetParameter(2);
-  
+
   std::cout << "done"<< std::endl;
   std::cout << std::endl;
   std::cout << "Delta 740 to 742_0 = (" <<  gaussFast0->GetParameter(1) << " +/- " << gaussFast0->GetParameter(2) << ") ns" << std::endl;
   std::cout << "Delta 740 to 742_0 = (" <<  gaussFast1->GetParameter(1) << " +/- " << gaussFast1->GetParameter(2) << ") ns" << std::endl;
   std::cout << std::endl;
-  
+
   fclose(in0);
   fclose(in1);
   fclose(in2);
   input740.clear();
   input742_0.clear();
   input742_1.clear();
-  
-  
+
+
   //------------------------------//
-  // COMPLETE READING 
+  // COMPLETE READING
   //------------------------------//
   // open again the input files and imports data correcting with offsets
   in0 = fopen(file0, "rb");
   in1 = fopen(file1, "rb");
   in2 = fopen(file2, "rb");
   std::cout << "Reading File " << file0 << "..." /*<< std::endl*/;
-  
+
   while(fread((void*)&ev740, sizeof(ev740), 1, in0) == 1)
   {
     input740.push_back(ev740);
     counter++;
   }
   std::cout << " done" << std::endl;
-  
+
   counter = 0;
   std::cout << "Reading File " << file1 << "..."/*<< std::endl*/;
   while(fread((void*)&ev742, sizeof(ev742), 1, in1) == 1)
@@ -203,12 +203,12 @@ int main(int argc,char **argv)
     {
       ev742.TTT[i] = ev742.TTT[i] + delta740to742_0;
     }
-    input742_0.push_back(ev742); 
+    input742_0.push_back(ev742);
     counter++;
   }
 //   std::cout << std::endl;
   std::cout << "done" << std::endl;
-  
+
   counter = 0;
   std::cout << "Reading File " << file2 << "..."/*<< std::endl*/;
   while(fread((void*)&ev742, sizeof(ev742), 1, in2) == 1)
@@ -222,40 +222,40 @@ int main(int argc,char **argv)
   }
 //   std::cout << std::endl;
   std::cout << "done" << std::endl;
-  
-  
+
+
   TFile *fRoot = new TFile("histograms.root","RECREATE");
-  
+
   double maxDelta = -INFINITY;
   double minDelta = INFINITY;
-  
+
   double maxDeltaTTT = -INFINITY;
   double minDeltaTTT = INFINITY;
-  
+
   double maxDelta740_742_0 = -INFINITY;
   double minDelta740_742_0 =  INFINITY;
-  
+
   double maxDelta740_742_1 = -INFINITY;
   double minDelta740_742_1 =  INFINITY;
-  
+
   double maxDeltaGroup = -INFINITY;
   double minDeltaGroup =  INFINITY;
-  
+
   double maxDeltaBoard = -INFINITY;
   double minDeltaBoard =  INFINITY;
-  
+
   //time binning of the 2 bords
   double Tt = 1000.0/(2.0*58.59375);
   double Ts = 16.0;
-  
+
   //min events num for all files
   long long int events = input742_0.size();
-  if(input742_0.size() < events) 
+  if(input742_0.size() < events)
     events = input742_0.size();
-  if(input742_1.size() < events) 
+  if(input742_1.size() < events)
     events = input742_1.size();
-  
-  
+
+
   //looks for maxima and minima in order to have reasonable plots.
   //could be skipped...
   std::cout << "Looking for maxima and minima..." /*<< std::endl*/;
@@ -267,92 +267,92 @@ int main(int argc,char **argv)
       minDelta = diff;
     if( diff > maxDelta )
       maxDelta = diff;
-    
+
     double diffTTT = (input742_0[i].TTT[2] - input742_1[i].TTT[2]) ;
     if( diffTTT < minDeltaTTT )
       minDeltaTTT = diffTTT;
     if( diffTTT > maxDeltaTTT )
       maxDeltaTTT = diffTTT;
-        
+
     double diff740_742_0 = (input740[i].TTT - input742_0[i].TTT[2]) ;
     if( diff740_742_0 < minDelta740_742_0 )
       minDelta740_742_0 = diff740_742_0;
     if( diff740_742_0 > maxDelta740_742_0 )
       maxDelta740_742_0 = diff740_742_0;
-    
+
     double diff740_742_1 = (input740[i].TTT - input742_1[i].TTT[2]) ;
     if( diff740_742_1 < minDelta740_742_1 )
       minDelta740_742_1 = diff740_742_1;
     if( diff740_742_1 > maxDelta740_742_1 )
       maxDelta740_742_1 = diff740_742_1;
-    
+
     double diffGroup = (input742_0[i].PulseEdgeTime[16] - input742_0[i].PulseEdgeTime[18])*200.0;
     if( diffGroup < minDeltaGroup )
       minDeltaGroup = diffGroup;
     if( diffGroup > maxDeltaGroup )
       maxDeltaGroup = diffGroup;
-    
+
     double diffBoard = (input742_1[i].PulseEdgeTime[16] - input742_1[i].PulseEdgeTime[24])*200.0;
     if( diffBoard < minDeltaBoard )
       minDeltaBoard = diffBoard;
     if( diffBoard > maxDeltaBoard )
       maxDeltaBoard = diffBoard;
-    
+
   }
   std::cout << "done" << std::endl;
   std::cout << std::endl;
-  
-  
+
+
   //creates histograms and graphs
   int h742_742_bins = (maxDeltaTTT - minDeltaTTT) / Tt;
   int h740_742_0_bins = (maxDelta740_742_0-minDelta740_742_0) / Tt;
-  int h740_742_1_bins = (maxDelta740_742_1-minDelta740_742_1) / Tt; 
-  
+  int h740_742_1_bins = (maxDelta740_742_1-minDelta740_742_1) / Tt;
+
   TH1F *hRes = new TH1F("hRes","hRes",((int) (maxDelta-minDelta)),minDelta,maxDelta);
   TH1F *hResSameGroup = new TH1F("hResSameGroup","hResSameGroup",((int) (maxDeltaGroup-minDeltaGroup)),minDeltaGroup,maxDeltaGroup);
   TH1F *hResSameBoard = new TH1F("hResSameBoard","hResSameBoard",((int) (maxDeltaBoard-minDeltaBoard)),minDeltaBoard,maxDeltaBoard);
-  
+
   TH1F *h742_742 = new TH1F("h742_742","h742_742",20,minDeltaTTT,maxDeltaTTT);
   TH1F *h740_742_0 = new TH1F("h740_742_0","h740_742_0",20,minDelta740_742_0,maxDelta740_742_0);
   TH1F *h740_742_1 = new TH1F("h740_742_1","h740_742_1",20,minDelta740_742_1,maxDelta740_742_1);
-  
+
   TH2F *TTT742 = new TH2F("TTT742","TTT742",1000,0,1e12,1000,0,1e12);
-  
+
   std::vector<double> t , t2, delta740_742_0,delta740_742_1,delta742_742;
-  
+
   std::cout << "Producing plots ..." /*<< std::endl*/;
-  
+
   int counterMatch = 0;
   // do general histograms/graphs and at the same time perform the event sorting scheme
   FILE *eventsFile;
   eventsFile = fopen("events.dat","wb");
-  
+
   long long int index742_0 = 0;
   long long int index742_1 = 0;
-  
-  
+
+
   events = input742_0.size();
-  
+
   for(int i = 0 ; i < events ; i++)
   {
     EventFormat_t event;
-  
+
     event.GlobalTTT = input740[i].TTT;  //put the TTT of 740 as global time reference of the event
     for(int j = 0 ; j < 64 ; j++)
     {
-      event.Charge[j] = input740[i].Charge[j];  // put the charges 
+      event.Charge[j] = input740[i].Charge[j];  // put the charges
       event.PulseEdgeTime[j] = 0;  // set the times to 0 for now
     }
-    
+
     bool foundMatch0 = false;
     bool foundMatch1 = false;
-    
+
     // search matching event on first 742 board...
     for(int k = -misDepth ; k < misDepth ; k++)  //run on this and the next misDepth-1 events, looking for a match
     {
-      if( ((index742_0+k) >= events) | ((index742_0+k) < 0)  ) // stop if you are the the end of the dataset, otherwise it's gonna be seg fault... 
+      if( ((index742_0+k) >= events) | ((index742_0+k) < 0)  ) // stop if you are the the end of the dataset, otherwise it's gonna be seg fault...
         continue;
-      if( fabs(input740[i].TTT - input742_0[index742_0+k].TTT[2]) > tolerance*sigmaT ) // if the event is not within the desired time window, skip to the next in the for loop. 
+      if( fabs(input740[i].TTT - input742_0[index742_0+k].TTT[2]) > tolerance*sigmaT ) // if the event is not within the desired time window, skip to the next in the for loop.
         continue;
       else        //match found, copy the values and set foundMatch0 to true
       {
@@ -365,13 +365,13 @@ int main(int argc,char **argv)
         break;    // if the match has been found, stop the for loop
       }
     }
-    
+
     // search a matching event on second 742 board...
     for(int k = -misDepth ; k < misDepth ; k++)
     {
-      if( ((index742_1+k) >= events) | ((index742_1+k) < 0) ) // stop if you are the the end of the dataset, otherwise it's gonna be seg fault... 
+      if( ((index742_1+k) >= events) | ((index742_1+k) < 0) ) // stop if you are the the end of the dataset, otherwise it's gonna be seg fault...
         continue;
-      if( fabs(input740[i].TTT - input742_1[index742_1+k].TTT[2]) > tolerance*sigmaT ) // if the event is not within the desired time window, skip to the next in the for loop. 
+      if( fabs(input740[i].TTT - input742_1[index742_1+k].TTT[2]) > tolerance*sigmaT ) // if the event is not within the desired time window, skip to the next in the for loop.
         continue;
       else        //match found, copy the values and set foundMatch1 to true
       {
@@ -383,8 +383,8 @@ int main(int argc,char **argv)
 	index742_1 = index742_1+k;
         break;    // if the match has been found, stop the for loop
       }
-    }   
-    
+    }
+
     if(foundMatch0 && foundMatch1) // if the matching events on both the 742 boards have been found, save the global event to file
     {
       fwrite(&event,sizeof(event),1,eventsFile);
@@ -394,15 +394,15 @@ int main(int argc,char **argv)
     {
       std::cout << "No matching event for sample " << i  << "\t"  << std::fixed << std::showpoint<< std::setprecision(2)<< input740[i].TTT << "\t" << input742_0[i].TTT[2] << "\t" << input742_1[i].TTT[2] << std::endl;
     }
-    
-       
+
+
     // fill histograms and vectors for graphs
     TTT742->Fill( input742_0[i].TTT[2] , input742_1[i].TTT[2] );
-    
+
     hRes->Fill( (input742_0[i].PulseEdgeTime[16] - input742_1[i].PulseEdgeTime[16])*200.0 );
     hResSameGroup->Fill( (input742_0[i].PulseEdgeTime[16] - input742_0[i].PulseEdgeTime[18])*200.0 );
     hResSameBoard->Fill( (input742_1[i].PulseEdgeTime[16] - input742_1[i].PulseEdgeTime[24])*200.0 );
-    
+
     h742_742->Fill  (( input742_0[i].TTT[2] - input742_1[i].TTT[2]));
     h740_742_0->Fill(( input740[i].TTT - input742_0[i].TTT[2]     ));
     h740_742_1->Fill(( input740[i].TTT - input742_1[i].TTT[2]     ));
@@ -410,14 +410,14 @@ int main(int argc,char **argv)
     {
       t.push_back(input740[i].TTT);
       t2.push_back(input742_0[i].TTT[2]);
-      
+
       delta740_742_0.push_back(input740[i].TTT - input742_0[i].TTT[2]);
       delta740_742_1.push_back(input740[i].TTT - input742_1[i].TTT[2]);
       delta742_742.push_back(input742_0[i].TTT[2] - input742_1[i].TTT[2]);
     }
-    
+
   }
-  
+
   fclose(eventsFile);
   std::cout << "done" << std::endl;
   std::cout <<std::endl<< "Matching events found " << counterMatch << std::endl;
@@ -425,53 +425,53 @@ int main(int argc,char **argv)
   TF1 *gauss2 = new TF1("gauss2","gaus",minDelta,maxDelta);
   TF1 *gauss1 = new TF1("gauss1","gaus",minDeltaBoard,maxDeltaBoard);
   TF1 *gauss0 = new TF1("gauss0","gaus",minDeltaGroup,maxDeltaGroup);
-  
+
   hResSameGroup->Fit("gauss0","Q");
   hResSameBoard->Fit("gauss1","Q");
   hRes->Fit("gauss2","Q");
-  
+
   std::cout << std::endl;
-  
+
   std::cout << "CTR FWHM same group         = " <<  gauss0->GetParameter(2) * 2.355 << "ps" << std::endl;
   std::cout << "CTR FWHM same board         = " <<  gauss1->GetParameter(2) * 2.355 << "ps" << std::endl;
   std::cout << "CTR FWHM different boards   = " <<  gauss2->GetParameter(2) * 2.355 << "ps" << std::endl;
-  
+
   TGraph* g_delta740_742_0 = new TGraph(t.size(),&t[0],&delta740_742_0[0]);
   g_delta740_742_0->SetTitle("Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
   g_delta740_742_0->GetXaxis()->SetTitle("Acquisition time [ns]");
   g_delta740_742_0->GetYaxis()->SetTitle("delta [ns]");
-  
+
   TGraph* g_delta740_742_1 = new TGraph(t.size(),&t[0],&delta740_742_1[0]);
   g_delta740_742_1->SetTitle("Trigger Time Tag delta vs. time (V1740D - V1742_1) ");
   g_delta740_742_1->GetXaxis()->SetTitle("Acquisition time [ns]");
   g_delta740_742_1->GetYaxis()->SetTitle("delta [ns]");
-  
+
   TGraph* g_delta742_742 = new TGraph(t2.size(),&t2[0],&delta742_742[0]);
   g_delta742_742->SetTitle("Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
   g_delta742_742->GetXaxis()->SetTitle("Acquisition time [ns]");
   g_delta742_742->GetYaxis()->SetTitle("delta [ns]");
-  
+
   //close everything
   fclose(in0);
   fclose(in1);
   fclose(in2);
-  
+
   fast740_742_0->Write();
   fast740_742_1->Write();
-  
+
   hResSameGroup->Write();
   hResSameBoard->Write();
   hRes->Write();
-  
+
   h742_742->Write();
   h740_742_0->Write();
   h740_742_1->Write();
-  
+
   TTT742->Write();
   g_delta742_742->Write();
   g_delta740_742_0->Write();
   g_delta740_742_1->Write();
-  
+
   fRoot->Close();
   return 0;
 }
