@@ -101,13 +101,13 @@ int main(int argc,char **argv)
   EventFormat_t ev;
   while(fread((void*)&ev, sizeof(ev), 1, fIn) == 1)
   {
-    ULong64_t GlobalTTT = ev.TTT740;
-    std::cout << std::fixed << std::showpoint << std::setprecision(4) << GlobalTTT << " ";
+    ULong64_t GlobalTTT;
+    std::cout << std::fixed << std::showpoint << std::setprecision(4) << ev.GlobalTTT << " ";
     if(counter == 0)
-      startTimeTag = (ULong64_t) GlobalTTT;
+      startTimeTag = (ULong64_t) ev.GlobalTTT;
 
-    ExtendedTimeTag = (ULong64_t) GlobalTTT;
-    DeltaTimeTag    = (ULong64_t) GlobalTTT - startTimeTag;
+    ExtendedTimeTag = (ULong64_t) ev.GlobalTTT;
+    DeltaTimeTag    = (ULong64_t) ev.GlobalTTT - startTimeTag;
     for(int i = 0 ; i < 64 ; i ++)
     {
       std::cout << ev.Charge[i] << " ";
