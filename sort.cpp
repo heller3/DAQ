@@ -66,7 +66,9 @@ typedef struct
 
 struct EventFormat_t
 {
-  double GlobalTTT;                         /*Trigger time tag of the event. For now, it's the TTT of the 740 digitizer */
+  double TTT740;                         /*Trigger time tag of the event according to 740*/
+  double TTT742_0;                       /*Trigger time tag of the event according to 742_0*/
+  double TTT742_1;                       /*Trigger time tag of the event according to 742_1*/
   uint16_t Charge[64];                      /*Integrated charge for all the channels of 740 digitizer*/
   double PulseEdgeTime[64];                 /*PulseEdgeTime for each channel in both timing digitizers*/
 } __attribute__((__packed__));
@@ -315,11 +317,15 @@ int main(int argc,char **argv)
   TH1F *h742_742 = new TH1F("h742_742","h742_742",20,minDeltaTTT,maxDeltaTTT);
   TH1F *h740_742_0 = new TH1F("h740_742_0","h740_742_0",20,minDelta740_742_0,maxDelta740_742_0);
   TH1F *h740_742_1 = new TH1F("h740_742_1","h740_742_1",20,minDelta740_742_1,maxDelta740_742_1);
-
+  
+  TH1F *sorted_h742_742 = new TH1F("sorted_h742_742","sorted_h742_742",20,minDeltaTTT,maxDeltaTTT);
+  TH1F *sorted_h740_742_0 = new TH1F("sortedh740_742_0","sorted_h740_742_0",20,minDelta740_742_0,maxDelta740_742_0);
+  TH1F *sorted_h740_742_1 = new TH1F("sorted_h740_742_1","sorted_h740_742_1",20,minDelta740_742_1,maxDelta740_742_1);
+  
   TH2F *TTT742 = new TH2F("TTT742","TTT742",1000,0,1e12,1000,0,1e12);
 
   std::vector<double> t , t2, delta740_742_0,delta740_742_1,delta742_742;
-
+  std::vector<double> sorted_t , sorted_t2, sorted_delta740_742_0,sorted_delta740_742_1,sorted_delta742_742;
   std::cout << "Producing plots ..." /*<< std::endl*/;
 
   int counterMatch = 0;
@@ -337,7 +343,9 @@ int main(int argc,char **argv)
   {
     EventFormat_t event;
 
-    event.GlobalTTT = input740[i].TTT;  //put the TTT of 740 as global time reference of the event
+    event.TTT740 = input740[i].TTT;  //put the TTT of 740 
+    
+    
     for(int j = 0 ; j < 64 ; j++)
     {
       event.Charge[j] = input740[i].Charge[j];  // put the charges
@@ -356,6 +364,7 @@ int main(int argc,char **argv)
         continue;
       else        //match found, copy the values and set foundMatch0 to true
       {
+	event.TTT742_0 = input742_0[i].TTT[0];  //put the TTT of 742_0
         for(int j = 0 ; j < 32 ; j++)
         {
           event.PulseEdgeTime[j] = input742_0[index742_0+k].PulseEdgeTime[j];
@@ -375,6 +384,7 @@ int main(int argc,char **argv)
         continue;
       else        //match found, copy the values and set foundMatch1 to true
       {
+	event.TTT742_1 = input742_1[i].TTT[0];  //put the TTT of 742_1
         for(int j = 32 ; j < 64 ; j++)
         {
           event.PulseEdgeTime[j] = input742_1[index742_1+k].PulseEdgeTime[j-32];
@@ -388,6 +398,20 @@ int main(int argc,char **argv)
     if(foundMatch0 && foundMatch1) // if the matching events on both the 742 boards have been found, save the global event to file
     {
       fwrite(&event,sizeof(event),1,eventsFile);
+      sorted_h742_742->Fill  (( event.TTT742_0 - event.TTT742_1));
+      sorted_h740_742_0->Fill(( event.TTT740 - event.TTT742_0     ));
+      sorted_h740_742_1->Fill(( event.TTT740 - event.TTT742_1     ));
+      if( (i % (input740.size() / 200) ) == 0) // roughly just 200 points per TGraph
+      {
+        sorted_t.push_back(event.TTT740);
+        sorted_t2.push_back(event.TTT742_0);
+      
+        sorted_delta740_742_0.push_back(event.TTT740 - event.TTT742_0);
+        sorted_delta740_742_1.push_back(event.TTT740 - event.TTT742_1);
+        sorted_delta742_742.push_back(event.TTT742_0 - event.TTT742_1);
+      }
+      
+      
       counterMatch++;
     }
     else  // otherwise skip this event and warn the user
@@ -437,19 +461,46 @@ int main(int argc,char **argv)
   std::cout << "CTR FWHM different boards   = " <<  gauss2->GetParameter(2) * 2.355 << "ps" << std::endl;
 
   TGraph* g_delta740_742_0 = new TGraph(t.size(),&t[0],&delta740_742_0[0]);
+  g_delta740_742_0->SetName("Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
   g_delta740_742_0->SetTitle("Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
   g_delta740_742_0->GetXaxis()->SetTitle("Acquisition time [ns]");
   g_delta740_742_0->GetYaxis()->SetTitle("delta [ns]");
 
   TGraph* g_delta740_742_1 = new TGraph(t.size(),&t[0],&delta740_742_1[0]);
+  g_delta740_742_1->SetName("Trigger Time Tag delta vs. time (V1740D - V1742_1) ");
   g_delta740_742_1->SetTitle("Trigger Time Tag delta vs. time (V1740D - V1742_1) ");
   g_delta740_742_1->GetXaxis()->SetTitle("Acquisition time [ns]");
   g_delta740_742_1->GetYaxis()->SetTitle("delta [ns]");
 
   TGraph* g_delta742_742 = new TGraph(t2.size(),&t2[0],&delta742_742[0]);
+  g_delta742_742->SetName("Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
   g_delta742_742->SetTitle("Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
   g_delta742_742->GetXaxis()->SetTitle("Acquisition time [ns]");
   g_delta742_742->GetYaxis()->SetTitle("delta [ns]");
+  
+  
+  TGraph* sorted_g_delta740_742_0 = new TGraph(sorted_t.size(),&sorted_t[0],&sorted_delta740_742_0[0]);
+  sorted_g_delta740_742_0->SetName("sorted_Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
+  sorted_g_delta740_742_0->SetTitle("sorted_Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
+  sorted_g_delta740_742_0->GetXaxis()->SetTitle("Acquisition time [ns]");
+  sorted_g_delta740_742_0->GetYaxis()->SetTitle("delta [ns]");
+
+  TGraph* sorted_g_delta740_742_1 = new TGraph(sorted_t.size(),&sorted_t[0],&sorted_delta740_742_1[0]);
+  sorted_g_delta740_742_1->SetName("sorted_Trigger Time Tag delta vs. time (V1740D - V1742_1) ");
+  sorted_g_delta740_742_1->SetTitle("sorted_Trigger Time Tag delta vs. time (V1740D - V1742_1) ");
+  sorted_g_delta740_742_1->GetXaxis()->SetTitle("Acquisition time [ns]");
+  sorted_g_delta740_742_1->GetYaxis()->SetTitle("delta [ns]");
+
+  TGraph* sorted_g_delta742_742 = new TGraph(sorted_t2.size(),&sorted_t2[0],&sorted_delta742_742[0]);
+  sorted_g_delta742_742->SetName("sorted_Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
+  sorted_g_delta742_742->SetTitle("sorted_Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
+  sorted_g_delta742_742->GetXaxis()->SetTitle("Acquisition time [ns]");
+  sorted_g_delta742_742->GetYaxis()->SetTitle("delta [ns]");
+  
+  std::cout << t.size() << " "
+            << t2.size() << " "
+	    << sorted_t.size() << " "
+	    << sorted_t2.size() << " " << std::endl;
 
   //close everything
   fclose(in0);
@@ -466,12 +517,18 @@ int main(int argc,char **argv)
   h742_742->Write();
   h740_742_0->Write();
   h740_742_1->Write();
+  
+  sorted_h742_742->Write();
+  sorted_h740_742_0->Write();
+  sorted_h740_742_1->Write();
 
   TTT742->Write();
   g_delta742_742->Write();
   g_delta740_742_0->Write();
   g_delta740_742_1->Write();
-
+  sorted_g_delta742_742->Write();
+  sorted_g_delta740_742_0->Write();
+  sorted_g_delta740_742_1->Write();
   fRoot->Close();
   return 0;
 }
