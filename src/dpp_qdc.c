@@ -108,7 +108,7 @@ _CAEN_DGTZ_DPP_QDC_Event_t *gEventsGrp[8] = {NULL,NULL,NULL,NULL,NULL,NULL,NULL,
 
 #define CLEARSCR "clear"
 
-#define WRITE_DATA 1
+// #define WRITE_DATA 1
 // #define OPTIMIZATION_RUN 1
 
 static struct termios g_old_kbd_mode;
@@ -223,6 +223,7 @@ void clear_screen()
 void set_default_parameters(BoardParameters *params) {
   int i;
   
+  params->WriteData         = 1;             /*by default write output to data files*/
   params->OutputMode        = OUTPUTMODE_BINARY;
   params->OutputWaves742    = 0;                   /*by default do not write each 742 wave on binary file*/
   params->RecordLength      = 200;		   /* Number of samples in the acquisition window (waveform mode only)    */
@@ -323,7 +324,8 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       
       //       printf("%s\n",str);
       
-      
+      if (strcmp(str, "WriteData") == 0) 
+        fscanf(parameters_file, "%d", &params->WriteData);
       
       if (strcmp(str, "OutputMode") == 0) {
         char str1[100];
@@ -1058,7 +1060,7 @@ int run_acquisition() {
       realTime740 = temp_gExtendedTimeTag * 16.0;
       temp_gPrevTimeTag = gEvent[0][j].TimeTag;
       
-      if(WRITE_DATA) // prepare write TTT to output if enabled
+      if(gParams.WriteData) // prepare write TTT to output if enabled
       {
         if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
           Data740.TTT = realTime740;
@@ -1072,7 +1074,10 @@ int run_acquisition() {
         
         gEvCnt[i]++;
         uint32_t Charge;       
-        Charge = (gEvent[i][j].Charge & 0xFFFF);  /* rebin charge to 4Kchannels */
+	// HISTO_NBIN is 4096
+	// gEvent[i][j].Charge is from 0 to 65536 (uint16_t)
+	// so rebinning means dividing charge by 2^4
+        Charge = ( (gEvent[i][j].Charge  >> 4) & 0xFFFF);  /* rebin charge to 4Kchannels */
         
         /*Update energy histogram*/
         if ((Charge < HISTO_NBIN) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT) && (gEvent[i][j].Overrange == 0))
@@ -1124,7 +1129,7 @@ int run_acquisition() {
           //------------- End of PLOTS for x740
         }
         
-        if(WRITE_DATA) // prepare write data of this channel on output if enabled
+        if(gParams.WriteData) // prepare write data of this channel on output if enabled
         {
           if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
             fprintf(sStamps740,"%u ",(gEvent[i][j].Charge & 0xFFFF));
@@ -1133,7 +1138,7 @@ int run_acquisition() {
         }
       }
       
-      if(WRITE_DATA) // write data on output files if enabled
+      if(gParams.WriteData) // write data on output files if enabled
       {
         if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
           fprintf(sStamps740,"\n");
@@ -1184,7 +1189,7 @@ int run_acquisition() {
             }
             PrevTTT[i][gr] = TTT[i][gr];
             
-            if(WRITE_DATA)
+            if(gParams.WriteData)
             {
               if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
                 Data742[i].TTT[gr] = TTT[i][gr];
@@ -1242,7 +1247,7 @@ int run_acquisition() {
               if(PulseEdgeTime >= 0)
               {
                 PulseEdgeTime = TriggerEdgeTime - PulseEdgeTime;
-                if(WRITE_DATA)
+                if(gParams.WriteData)
                 {
                   if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
                     Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = PulseEdgeTime;
@@ -1252,7 +1257,7 @@ int run_acquisition() {
               }
               else
               {
-                if(WRITE_DATA)
+                if(gParams.WriteData)
                 {
                   if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
                     Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = 0;
@@ -1289,7 +1294,7 @@ int run_acquisition() {
           }
           else
           {
-            if(WRITE_DATA)
+            if(gParams.WriteData)
             {
               unsigned int ch;
               for(ch = 0 ; ch < 9 ; ch ++) // to 9 because the TRn is also included
@@ -1302,7 +1307,7 @@ int run_acquisition() {
             }
           }          
         }
-        if(WRITE_DATA)
+        if(gParams.WriteData)
         {
           if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
             fprintf(sStamps742[i],"\n"); 
@@ -1434,7 +1439,7 @@ int cleanup_on_exit() {
   
   free(Data742);
   
-  if(WRITE_DATA){
+  if(gParams.WriteData){
     if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
       fclose(sStamps740);
     if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
@@ -1503,7 +1508,7 @@ int setup_acquisition(char *fname) {
   char stamps742FileName[50],b742FileName[50];
   unsigned int j;
   
-  if(WRITE_DATA)
+  if(gParams.WriteData)
   {
     if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
       sStamps742 = (FILE**) malloc ( gParams.NumOfV1742 * sizeof(FILE*));

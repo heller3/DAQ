@@ -87,6 +87,7 @@
 typedef struct 
 {
   // V1740D
+  uint32_t WriteData;
   uint32_t OutputMode;
   uint32_t OutputWaves742;
   uint32_t ConnectionType;
