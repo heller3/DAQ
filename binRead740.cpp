@@ -1,4 +1,4 @@
-// g++ -o binRead740 ../binRead740.cpp 
+// g++ -o binRead740 ../binRead740.cpp
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,20 +35,20 @@ typedef struct
 //----------------//
 int main(int argc,char **argv)
 {
-  
+
   char* file0;
   file0 = argv[1];
   FILE * fIn = NULL;
-  
+
   fIn = fopen(file0, "rb");
-  
+
   if (fIn == NULL) {
     fprintf(stderr, "File %s does not exist\n", file0);
     return 1;
   }
-  
+
   long long int counter = 0;
-  
+
   Data740_t ev740;
   while(fread((void*)&ev740, sizeof(ev740), 1, fIn) == 1)
   {
@@ -60,11 +60,11 @@ int main(int argc,char **argv)
     std::cout << std::endl;
     counter++;
   }
-  
-  std::cout << "Events in file " << file0 << " = " << counter << std::endl;
+
+  // std::cout << "Events in file " << file0 << " = " << counter << std::endl;
 
 
   fclose(fIn);
-  
-  return 0; 
+
+  return 0;
 }

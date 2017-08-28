@@ -98,7 +98,7 @@ int main(int argc,char **argv)
     std::cout << "You need to provide 3 files!" << std::endl;
     return 1;
   }
-  
+
   char* file0;
   char* file1;
   char* file2;
@@ -317,11 +317,11 @@ int main(int argc,char **argv)
   TH1F *h742_742 = new TH1F("h742_742","h742_742",20,minDeltaTTT,maxDeltaTTT);
   TH1F *h740_742_0 = new TH1F("h740_742_0","h740_742_0",20,minDelta740_742_0,maxDelta740_742_0);
   TH1F *h740_742_1 = new TH1F("h740_742_1","h740_742_1",20,minDelta740_742_1,maxDelta740_742_1);
-  
+
   TH1F *sorted_h742_742 = new TH1F("sorted_h742_742","sorted_h742_742",20,minDeltaTTT,maxDeltaTTT);
   TH1F *sorted_h740_742_0 = new TH1F("sortedh740_742_0","sorted_h740_742_0",20,minDelta740_742_0,maxDelta740_742_0);
   TH1F *sorted_h740_742_1 = new TH1F("sorted_h740_742_1","sorted_h740_742_1",20,minDelta740_742_1,maxDelta740_742_1);
-  
+
   TH2F *TTT742 = new TH2F("TTT742","TTT742",1000,0,1e12,1000,0,1e12);
 
   std::vector<double> t , t2, delta740_742_0,delta740_742_1,delta742_742;
@@ -343,9 +343,9 @@ int main(int argc,char **argv)
   {
     EventFormat_t event;
 
-    event.TTT740 = input740[i].TTT;  //put the TTT of 740 
-    
-    
+    event.TTT740 = input740[i].TTT;  //put the TTT of 740
+
+
     for(int j = 0 ; j < 64 ; j++)
     {
       event.Charge[j] = input740[i].Charge[j];  // put the charges
@@ -405,13 +405,13 @@ int main(int argc,char **argv)
       {
         sorted_t.push_back(event.TTT740);
         sorted_t2.push_back(event.TTT742_0);
-      
+
         sorted_delta740_742_0.push_back(event.TTT740 - event.TTT742_0);
         sorted_delta740_742_1.push_back(event.TTT740 - event.TTT742_1);
         sorted_delta742_742.push_back(event.TTT742_0 - event.TTT742_1);
       }
-      
-      
+
+
       counterMatch++;
     }
     else  // otherwise skip this event and warn the user
@@ -477,8 +477,8 @@ int main(int argc,char **argv)
   g_delta742_742->SetTitle("Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
   g_delta742_742->GetXaxis()->SetTitle("Acquisition time [ns]");
   g_delta742_742->GetYaxis()->SetTitle("delta [ns]");
-  
-  
+
+
   TGraph* sorted_g_delta740_742_0 = new TGraph(sorted_t.size(),&sorted_t[0],&sorted_delta740_742_0[0]);
   sorted_g_delta740_742_0->SetName("sorted_Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
   sorted_g_delta740_742_0->SetTitle("sorted_Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
@@ -496,7 +496,7 @@ int main(int argc,char **argv)
   sorted_g_delta742_742->SetTitle("sorted_Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
   sorted_g_delta742_742->GetXaxis()->SetTitle("Acquisition time [ns]");
   sorted_g_delta742_742->GetYaxis()->SetTitle("delta [ns]");
-  
+
   std::cout << t.size() << " "
             << t2.size() << " "
 	    << sorted_t.size() << " "
@@ -517,7 +517,7 @@ int main(int argc,char **argv)
   h742_742->Write();
   h740_742_0->Write();
   h740_742_1->Write();
-  
+
   sorted_h742_742->Write();
   sorted_h740_742_0->Write();
   sorted_h740_742_1->Write();
