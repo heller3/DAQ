@@ -1327,7 +1327,13 @@ int run_acquisition() {
   for(i = 0 ; i < gParams.NumOfV1742 ; i++) {
     gAcqStats.nb += buffer742Size[i];
   }
+  
+  free(NumEvents742);
+  free(EventInfo);
+  free(EventPtr);
+  
   return 0;
+  
   
 }
 
@@ -1419,6 +1425,10 @@ int cleanup_on_exit() {
       free(TTT[i]);
       free(PrevTTT[i]);
       free(Nroll[i]);
+      //free 742 event
+//     CAEN_DGTZ_FreeEvent();
+      CAEN_DGTZ_FreeEvent(tHandle[i], (void**)&Event742);
+      CAEN_DGTZ_FreeReadoutBuffer(&buffer742[i]);
   }
   free(TTT);
   free(PrevTTT);

@@ -226,7 +226,10 @@ int main(int argc,char **argv)
   long int file0N = filesize(file0) /  sizeof(ev740);
   long int file1N = filesize(file1) /  sizeof(ev742_0);
   long int file2N = filesize(file2) /  sizeof(ev742_1);
-
+  std::cout << "File " << file0 << "\t = " <<  file0N << " events" <<std::endl;
+  std::cout << "File " << file1 << "\t = " <<  file1N << " events" <<std::endl;
+  std::cout << "File " << file2 << "\t = " <<  file2N << " events" <<std::endl;
+  
   in0 = fopen(file0, "rb");
   in1 = fopen(file1, "rb");
   in2 = fopen(file2, "rb");
