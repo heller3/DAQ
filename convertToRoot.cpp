@@ -14,7 +14,7 @@
 #include <sstream>
 #include <fstream>
 #include <string>
-#include <iomanip>      // std::setprecision
+#include <iomanip>      // satd::setprecision
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -102,7 +102,7 @@ int main(int argc,char **argv)
   while(fread((void*)&ev, sizeof(ev), 1, fIn) == 1)
   {
     ULong64_t GlobalTTT = ev.TTT740;
-    std::cout << std::fixed << std::showpoint << std::setprecision(4) << GlobalTTT << " ";
+//     std::cout << std::fixed << std::showpoint << std::setprecision(4) << GlobalTTT << " ";
     if(counter == 0)
       startTimeTag = (ULong64_t) GlobalTTT;
 
@@ -110,16 +110,16 @@ int main(int argc,char **argv)
     DeltaTimeTag    = (ULong64_t) GlobalTTT - startTimeTag;
     for(int i = 0 ; i < 64 ; i ++)
     {
-      std::cout << ev.Charge[i] << " ";
+//       std::cout << ev.Charge[i] << " ";
       charge[i] = (Short_t) ev.Charge[i];
     }
     for(int i = 0 ; i < 64 ; i ++)
     {
-      std::cout << std::setprecision(6) << ev.PulseEdgeTime[i] << " ";
+//       std::cout << std::setprecision(6) << ev.PulseEdgeTime[i] << " ";
       timestamp[i] = (Float_t) ev.PulseEdgeTime[i];
     }
     t1->Fill();
-    std::cout << std::endl;
+//     std::cout << std::endl;
     counter++;
   }
 
