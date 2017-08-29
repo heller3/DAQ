@@ -359,7 +359,7 @@ int main(int argc,char **argv)
         }
       }
     }
-    if( (fileCounter[0] % file0N)  == 0)
+    if( (file0N % fileCounter[0])  == 0)
     {
       std::cout << 100 * fileCounter[0]/file0N << "%\t"
                 << 100 * fileCounter[1]/file1N << "%\t"
