@@ -229,7 +229,7 @@ int main(int argc,char **argv)
   std::cout << "File " << file0 << "\t = " <<  file0N << " events" <<std::endl;
   std::cout << "File " << file1 << "\t = " <<  file1N << " events" <<std::endl;
   std::cout << "File " << file2 << "\t = " <<  file2N << " events" <<std::endl;
-  
+
   in0 = fopen(file0, "rb");
   in1 = fopen(file1, "rb");
   in2 = fopen(file2, "rb");
@@ -359,11 +359,13 @@ int main(int argc,char **argv)
         }
       }
     }
-
-    std::cout << 100 * fileCounter[0]/file0N << "%\t"
-              << 100 * fileCounter[1]/file1N << "%\t"
-              << 100 * fileCounter[2]/file2N << "%\t"
-              << "\r";
+    if( (fileCounter[0] % file0N)  == 0)
+    {
+      std::cout << 100 * fileCounter[0]/file0N << "%\t"
+                << 100 * fileCounter[1]/file1N << "%\t"
+                << 100 * fileCounter[2]/file2N << "%\t"
+                << "\r";
+    }
   }
 
   std::cout << std::endl;

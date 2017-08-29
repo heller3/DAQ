@@ -37,6 +37,11 @@ struct EventFormat_t
 } __attribute__((__packed__));
 
 
+std::ifstream::pos_type filesize(const char* filename)
+{
+    std::ifstream in(filename, std::ifstream::ate | std::ifstream::binary);
+    return in.tellg();
+}
 
 
 //----------------//
@@ -99,6 +104,9 @@ int main(int argc,char **argv)
   long long int counter = 0;
 
   EventFormat_t ev;
+
+  long long int file0N = filesize(file0) /  sizeof(ev);
+
   while(fread((void*)&ev, sizeof(ev), 1, fIn) == 1)
   {
     ULong64_t GlobalTTT = ev.TTT740;
@@ -121,6 +129,10 @@ int main(int argc,char **argv)
     t1->Fill();
 //     std::cout << std::endl;
     counter++;
+    if((counter % file0N) == 0)
+    {
+      std::cout << 100 * counter / file0N << "%\r" ;
+    }
   }
 
   std::cout << "Events in file " << file0 << " = " << counter << std::endl;
