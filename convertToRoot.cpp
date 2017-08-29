@@ -129,10 +129,10 @@ int main(int argc,char **argv)
     t1->Fill();
 //     std::cout << std::endl;
     counter++;
-    if((file0N % counter) == 0)
-    {
+    // if((file0N % counter) == 0)
+    // {
       std::cout << 100 * counter / file0N << "%\r" ;
-    }
+    // }
   }
 
   std::cout << "Events in file " << file0 << " = " << counter << std::endl;
