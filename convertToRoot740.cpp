@@ -105,6 +105,8 @@ int main(int argc,char **argv)
   std::cout << std::endl;
   while(fread((void*)&ev, sizeof(ev), 1, fIn) == 1)
   {
+//     if(counter >= 3000000)
+//       break;
     // std::cout << std::fixed << std::showpoint << std::setprecision(4) << ev.TTT << " ";
     if(counter == 0)
       startTimeTag = (ULong64_t) ev.TTT;

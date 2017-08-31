@@ -85,13 +85,15 @@ double **TTT, **PrevTTT;
 Data740_t Data740;
 Data742_t *Data742;
 
+long long int events740written = 0;
+long long int *events742written;
+
 double Ts, Tt;
 double realTime740 = 0;
 uint64_t temp_gPrevTimeTag = 0;
 uint64_t temp_gETT = 0;
 uint64_t temp_gExtendedTimeTag = 0;
 
-int foundEvent[3] = {0,0,0};
 
 FILE *event_file = NULL;
 FILE *plotter = NULL;
@@ -798,17 +800,22 @@ int SetSyncMode(int handle, int timing, uint32_t runDelay)
 
 int ForceClockSync(int handle,int tHandle[],int size)
 {
+  printf("Syncing board %d...\n",handle);
   int ret;
   Sleep(500);
   /* Force clock phase alignment */
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_FORCE_SYNC, 1);
+  Sleep(1000);
   unsigned int i;
   for(i=0;i< size;i++)
   {
-//     ret = CAEN_DGTZ_WriteRegister(tHandle[i], ADDR_FORCE_SYNC, 1);
+    printf("Syncing board %d...\n",tHandle[i]);
+    Sleep(500);
+    ret = CAEN_DGTZ_WriteRegister(tHandle[i], ADDR_FORCE_SYNC, 1);
+    Sleep(1000);
   }
   /* Wait an appropriate time before proceeding */
-  Sleep(1000);
+  
   return ret;
 }
 
@@ -1140,6 +1147,7 @@ int run_acquisition() {
       
       if(gParams.WriteData) // write data on output files if enabled
       {
+        events740written++;
         if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
           fprintf(sStamps740,"\n");
         if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
@@ -1309,6 +1317,7 @@ int run_acquisition() {
         }
         if(gParams.WriteData)
         {
+          events742written[i]++;
           if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
             fprintf(sStamps742[i],"\n"); 
           if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
@@ -1364,6 +1373,9 @@ void print_statistics() {
     printf("Readout Loops        = %d\n", gLoops );
     printf("Bytes read           = %d\n", gAcqStats.nb);
     printf("Events               = %lld\n", gAcqStats.TotEvCnt);
+    printf("Events in V1740D     = %lld\n", events740written);
+    for(i=0 ; i < gParams.NumOfV1742 ; i++)
+      printf("Events in V1742[%d]   = %lld\n", i,events742written[i]);
     printf("Readout Rate         = %.2f MB/s\n\n", (float)gAcqStats.nb / 1024 / (elapsed));
     
     
@@ -1448,6 +1460,7 @@ int cleanup_on_exit() {
 //   free(sStamps740);
   
   free(Data742);
+  free(events742written);
   
   if(gParams.WriteData){
     if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
@@ -1585,6 +1598,7 @@ int setup_acquisition(char *fname) {
   
   
   Data742 = (Data742_t*) malloc(gParams.NumOfV1742 * sizeof(Data742_t));
+  events742written = (long long int*) calloc(gParams.NumOfV1742 , sizeof(long long int));
   
   /* ---------------------------------------------------------------------------------------
    *    // Open the digitizer and read board information

@@ -16,6 +16,10 @@
 #include <string>
 #include <iomanip>      // satd::setprecision
 
+#include <time.h>
+#include <sys/timeb.h>
+
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -26,6 +30,40 @@
 #include "TTree.h"
 #include "TFile.h"
 
+#define ROOTFILELENGTH 100000
+
+/* ============================================================================== */
+/* Get time of the day 
+/* ============================================================================== */
+void TimeOfDay(char *actual_time)
+{
+  struct tm *timeinfo;
+  time_t currentTime;
+  time(&currentTime);
+  timeinfo = localtime(&currentTime);
+  strftime (actual_time,20,"%Y_%d_%m_%H_%M_%S",timeinfo);
+}
+
+
+
+/* ============================================================================== */
+/* Get time in milliseconds from the computer internal clock */
+/* ============================================================================== */
+// long get_time()
+// {
+//   long time_ms;
+//   #ifdef WIN32
+//   struct _timeb timebuffer;
+//   _ftime( &timebuffer );
+//   time_ms = (long)timebuffer.time * 1000 + (long)timebuffer.millitm;
+//   #else
+//   struct timeval t1;
+//   struct timezone tz;
+//   gettimeofday(&t1, &tz);
+//   time_ms = (t1.tv_sec) * 1000 + t1.tv_usec / 1000;
+//   #endif
+//   return time_ms;
+// }
 
 struct EventFormat_t
 {
@@ -60,7 +98,27 @@ int main(int argc,char **argv)
     fprintf(stderr, "File %s does not exist\n", file0);
     return 1;
   }
+  
+  // get time of day and create the listmode file name
+  char actual_time[20];
+  TimeOfDay(actual_time);
+//   std::string listFileName = "ListFile_"; 
+//   listFileName += actual_time;
+//   listFileName += ".txt";
+  //std::cout << "listFileName " << listFileName << std::endl;
+  
 
+  //----------------------------------------//
+  // Create Root TTree Folder and variables //
+  //----------------------------------------//
+  
+  //first, create a new directory
+  std::string dirName = "./Run_";
+  dirName += actual_time;
+  std::string MakeFolder;
+  MakeFolder = "mkdir " + dirName;
+  system(MakeFolder.c_str());
+  
   //declare ROOT ouput TTree and file
   ULong64_t DeltaTimeTag = 0;
   ULong64_t ExtendedTimeTag = 0;
@@ -74,41 +132,103 @@ int main(int argc,char **argv)
   std::stringstream stypes;
   std::string names;
   std::string types;
-  t1 = new TTree("adc","adc");
-  t1->Branch("ExtendedTimeTag",&ExtendedTimeTag,"ExtendedTimeTag/l"); 	//absolute time tag of the event
-  t1->Branch("DeltaTimeTag",&DeltaTimeTag,"DeltaTimeTag/l"); 			//delta time from previous event
-  for (int i = 0 ; i < 64 ; i++)
-  {
-    //empty the stringstreams
-    snames.str(std::string());
-    stypes.str(std::string());
-    charge[i] = 0;
-    snames << "ch" << i;
-    stypes << "ch" << i << "/S";
-    names = snames.str();
-    types = stypes.str();
-    t1->Branch(names.c_str(),&charge[i],types.c_str());
-  }
-  for (int i = 0 ; i < 64 ; i++)
-  {
-    //empty the stringstreams
-    snames.str(std::string());
-    stypes.str(std::string());
-    timestamp[i] = 0;
-    snames << "t" << i;
-    stypes << "t" << i << "/F";
-    names = snames.str();
-    types = stypes.str();
-    t1->Branch(names.c_str(),&timestamp[i],types.c_str());
-  }
+  
   long long int counter = 0;
 
   EventFormat_t ev;
+  int filePart = 0;
+  long long int runNumber = 0;
+  long long int listNum = 0;
+  int NumOfRootFile = 0;
 
   long long int file0N = filesize(file0) /  sizeof(ev);
-
+  std::cout << "Events in file " << file0 << " = " << file0N << std::endl;
   while(fread((void*)&ev, sizeof(ev), 1, fIn) == 1)
   {
+    
+    if( listNum == 0 ){
+      t1 = new TTree("adc","adc");
+      t1->Branch("ExtendedTimeTag",&ExtendedTimeTag,"ExtendedTimeTag/l");   //absolute time tag of the event
+      t1->Branch("DeltaTimeTag",&DeltaTimeTag,"DeltaTimeTag/l");                    //delta time from previous event
+      for (int i = 0 ; i < 64 ; i++)
+      {
+        //empty the stringstreams
+        snames.str(std::string());
+        stypes.str(std::string());
+        charge[i] = 0;
+        snames << "ch" << i;
+        stypes << "ch" << i << "/S";
+        names = snames.str();
+        types = stypes.str();
+        t1->Branch(names.c_str(),&charge[i],types.c_str());
+      }
+      for (int i = 0 ; i < 64 ; i++)
+      {
+        //empty the stringstreams
+        snames.str(std::string());
+        stypes.str(std::string());
+        timestamp[i] = 0;
+        snames << "t" << i;
+        stypes << "t" << i << "/F";
+        names = snames.str();
+        types = stypes.str();
+        t1->Branch(names.c_str(),&timestamp[i],types.c_str());
+      }
+//       std::cout << "RunNumber = " << counter << std::endl;
+    }
+    else if( (listNum != 0) && ( (int)(listNum/ROOTFILELENGTH) > NumOfRootFile ))
+    {
+      NumOfRootFile++;
+      //save previous ttree
+      //file name
+      std::stringstream fileRootStream;
+      std::string fileRoot;
+      fileRootStream << dirName << "/TTree_" << filePart << "_" << actual_time << ".root";
+      fileRoot = fileRootStream.str();
+//       std::cout << "Saving root file "<< fileRoot << "..." << std::endl;
+      TFile* fTree = new TFile(fileRoot.c_str(),"recreate");
+      fTree->cd();
+      t1->Write();
+      fTree->Close();
+      //delete previous ttree
+      delete t1;
+      
+      //create new ttree
+      t1 = new TTree("adc","adc");
+      t1->Branch("ExtendedTimeTag",&ExtendedTimeTag,"ExtendedTimeTag/l");   //absolute time tag of the event
+      t1->Branch("DeltaTimeTag",&DeltaTimeTag,"DeltaTimeTag/l");                    //delta time from previous event
+      for (int i = 0 ; i < 64 ; i++)
+      {
+        //empty the stringstreams
+        snames.str(std::string());
+        stypes.str(std::string());
+        charge[i] = 0;
+        snames << "ch" << i;
+        stypes << "ch" << i << "/S";
+        names = snames.str();
+        types = stypes.str();
+        t1->Branch(names.c_str(),&charge[i],types.c_str());
+      }
+      for (int i = 0 ; i < 64 ; i++)
+      {
+        //empty the stringstreams
+        snames.str(std::string());
+        stypes.str(std::string());
+        timestamp[i] = 0;
+        snames << "t" << i;
+        stypes << "t" << i << "/F";
+        names = snames.str();
+        types = stypes.str();
+        t1->Branch(names.c_str(),&timestamp[i],types.c_str());
+      }
+      filePart++;
+      if( ((100 * counter / file0N) % 10 ) == 0)
+        std::cout << "Progress = " <<  100 * counter / file0N << "%\r";
+      //std::cout << counter << std::endl;
+      
+    }    
+    
+    
     ULong64_t GlobalTTT = ev.TTT740;
 //     std::cout << std::fixed << std::showpoint << std::setprecision(4) << GlobalTTT << " ";
     if(counter == 0)
@@ -129,21 +249,32 @@ int main(int argc,char **argv)
     t1->Fill();
 //     std::cout << std::endl;
     counter++;
-    if((counter % file0N) == 0)
-    {
-      std::cout << 100 * counter / file0N << "%\r" ;
-    }
+    listNum++;
+//     if((counter % file0N) == 0)
+//     {
+//     std::cout << 100 * counter / file0N << "%\r" ;
+//     }
   }
+  
+  std::stringstream fileRootStreamFinal;
+  std::string fileRootFinal;
+  fileRootStreamFinal << dirName << "/TTree_" << filePart << "_" << actual_time << ".root";
+  fileRootFinal = fileRootStreamFinal.str();
+//   std::cout << "Saving root file "<< fileRootFinal << "..." << std::endl;
+  TFile* fTreeFinal = new TFile(fileRootFinal.c_str(),"recreate");
+  fTreeFinal->cd();
+  t1->Write();
+  fTreeFinal->Close();
 
-  std::cout << "Events in file " << file0 << " = " << counter << std::endl;
+  std::cout << "Events exported = " << counter << std::endl;
 
 
   fclose(fIn);
 
-  TFile* fTree = new TFile("testTree.root","recreate");
-  fTree->cd();
-  t1->Write();
-  fTree->Close();
+//   TFile* fTree = new TFile("testTree.root","recreate");
+//   fTree->cd();
+//   t1->Write();
+//   fTree->Close();
 
   return 0;
 }
