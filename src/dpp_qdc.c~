@@ -189,6 +189,17 @@ int kbhit()
   return (status);
 }
 
+/* ============================================================================== */
+/* Get time of the day 
+/* ============================================================================== */
+void TimeOfDay(char *actual_time)
+{
+  struct tm *timeinfo;
+  time_t currentTime;
+  time(&currentTime);
+  timeinfo = localtime(&currentTime);
+  strftime (actual_time,20,"%Y_%d_%m_%H_%M_%S",timeinfo);
+}
 
 #else  /* Windows */
 
@@ -776,7 +787,7 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
 int SetSyncMode(int handle, int timing, uint32_t runDelay)
 {
   unsigned int i, ret=0;
-  uint32_t reg,d32;
+  uint32_t reg,d32,readReg;
   if (timing){  // Run starts with S-IN on the 2nd board and all board afterwards
     ret = CAEN_DGTZ_WriteRegister(handle, ADDR_ACQUISITION_MODE, RUN_START_ON_SIN_LEVEL);
   } 
@@ -787,8 +798,17 @@ int SetSyncMode(int handle, int timing, uint32_t runDelay)
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_GLOBAL_TRG_MASK, (1<<30/*|1<<Params.RefChannel[i])*/));  // this set triggers to external trigger -> [30] = 1
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_TRG_OUT_MASK, 0);   // no tigger propagation to TRGOUT
   //   globalret |= ret; 
-  printf("Clock n for sync = %d \n",runDelay);
+  
+  //DEBUG 
+  //read and write register value
+//   ret = CAEN_DGTZ_ReadRegister(handle, ADDR_RUN_DELAY, &readReg);
+//   printf("Register 0x%08x before\t= 0x%08x \n",ADDR_RUN_DELAY,readReg);
+  printf("Applying Run-Delay of %d clock units on digitizer %d... \n",runDelay,handle);
   ret = CAEN_DGTZ_WriteRegister(handle, ADDR_RUN_DELAY, runDelay);   // Run Delay decreases with the position (to compensate for run the propagation delay) //
+//   ret = CAEN_DGTZ_ReadRegister(handle, ADDR_RUN_DELAY, &readReg);
+//   printf("Register 0x%08x after \t= 0x%08x \n",ADDR_RUN_DELAY,readReg);
+  
+  
   // Set TRGOUT=RUN to propagate run through S-IN => TRGOUT daisy chain
   ret = CAEN_DGTZ_ReadRegister(handle, ADDR_FRONT_PANEL_IO_SET, &reg);
   reg = reg & 0xFFF0FFFF | 0x00010000; 
@@ -800,6 +820,7 @@ int SetSyncMode(int handle, int timing, uint32_t runDelay)
 
 int ForceClockSync(int handle,int tHandle[],int size)
 {
+  printf("Syncing board %d...\n",handle);
   int ret;
   Sleep(500);
   /* Force clock phase alignment */
@@ -808,6 +829,7 @@ int ForceClockSync(int handle,int tHandle[],int size)
   unsigned int i;
   for(i=0;i< size;i++)
   {
+    printf("Syncing board %d...\n",tHandle[i]);
     Sleep(500);
     ret = CAEN_DGTZ_WriteRegister(tHandle[i], ADDR_FORCE_SYNC, 1);
     Sleep(1000);
@@ -1526,8 +1548,25 @@ int setup_acquisition(char *fname) {
 //   tttFile      = fopen("ttt.txt","w");
   
 //   sStamps740 = (FILE*) malloc (  sizeof(FILE*)) 
-  char stamps742FileName[50],b742FileName[50];
+  char stamps742FileName[100],b742FileName[100],b740FileName[100],stamps740FileName[100];
+  
   unsigned int j;
+  char dirName[100];
+  char MakeFolder[100];
+  char copyConfig[100];
+  // get time of day and create the listmode file name
+  char actual_time[20];
+  TimeOfDay(actual_time);
+  
+  sprintf(dirName,"./Run_%s",actual_time);
+  printf("Creating subfolder %s\n",dirName);
+  sprintf(MakeFolder,"mkdir %s",dirName);
+  sprintf(copyConfig,"cp %s %s",fname,dirName);
+  //first, create a new directory
+  system(MakeFolder);
+  //copy the config file into that directory
+  printf("Ccopying configuration file %s in %s\n",copyConfig,dirName);
+  system(copyConfig);
   
   if(gParams.WriteData)
   {
@@ -1541,20 +1580,25 @@ int setup_acquisition(char *fname) {
     {
       if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
       {
-        sprintf(stamps742FileName,"stamps742_%d.txt",j);
+        sprintf(stamps742FileName,"./%s/stamps742_%d.txt",dirName,j);
         sStamps742[j] = fopen(stamps742FileName,"w");
       }
       if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
       {
-        sprintf(b742FileName,"binary742_%d.dat",j);
+        sprintf(b742FileName,"./%s/binary742_%d.dat",dirName,j);
         binOut742[j] = fopen(b742FileName,"wb");
       }
     }
     if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
-      sStamps740   = fopen("stamps740.txt","w");
-    
+    {
+      sprintf(stamps740FileName,"./%s/stamps740.txt",dirName);
+      sStamps740   = fopen(stamps740FileName,"w");
+    }
     if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
-      binOut740 = fopen("binary740.dat","wb");
+    {
+      sprintf(b740FileName,"./%s/binary740.dat",dirName);
+      binOut740 = fopen(b740FileName,"wb");
+    }
     
   }
   
@@ -1571,12 +1615,12 @@ int setup_acquisition(char *fname) {
       for(gr = 0 ; gr < groups ; gr++)
       {
         char TrFileName[30];
-        sprintf(TrFileName,"waveTR%d.dat",j*groups + gr); // TRn 
+        sprintf(TrFileName,"./%s/waveTR%d.dat",dirName,j*groups + gr); // TRn 
         trFile[j*groups + gr] = fopen(TrFileName,"wb");
         for(ch = 0 ; ch < channelsPerGroup ; ch++)
         {
           char waveFileName[30];
-          sprintf(waveFileName,"waveCh%d.dat",j*(groups*channelsPerGroup)+gr*(channelsPerGroup)+ch);
+          sprintf(waveFileName,"./%s/waveCh%d.dat",dirName,j*(groups*channelsPerGroup)+gr*(channelsPerGroup)+ch);
           waveFile[j*(groups*channelsPerGroup)+gr*(channelsPerGroup)+ch] = fopen(waveFileName,"wb");
         }
       }

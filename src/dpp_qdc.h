@@ -35,7 +35,6 @@
 #define OUTPUTMODE_BINARY  1
 #define OUTPUTMODE_BOTH    2
 
-
 #define CONNECTION_TYPE_USB    0
 #define CONNECTION_TYPE_OPT    1
 #define CONNECTION_TYPE_AUTO   255
@@ -151,6 +150,14 @@ typedef struct
   uint32_t v1742_PostTrigger[8]; 
   uint32_t v1742_RunDelay[8]; 
   
+  uint32_t v1742_TRpulsePolarity[8];
+  uint32_t v1742_WavePulsePolarity[8];
+  uint32_t v1742_BaselineStart[8];
+  uint32_t v1742_BaselineSamples[8];
+  uint32_t v1742_DeltaSquareStartPoint[8];
+  uint32_t v1742_LengthSecondBaseline[8];
+  uint32_t v1742_RegressionSamplesHalfNum[8];
+  
   uint32_t RegisterWriteBoard[64];                           // no more than 64 register writes, sorry...
   uint32_t RegisterWriteAddr[64];                           // no more than 64 register writes, sorry...
   uint32_t RegisterWriteValue[64];                           // no more than 64 register writes, sorry...
@@ -261,7 +268,9 @@ int  ForceClockSync(int handle,int tHandle[],int size);
 /* Utility functions prototypes */
 long get_time();
 void clear_screen( void );
-double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType);
+// double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType);
+// double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType,int baseLineSamples);
+double interpolateWithMultiplePoints(float* data, unsigned int length, CAEN_DGTZ_PulsePolarity_t edge, double Tstart,int baseLineSamples, int deltaSquareStartPoint, int lengthSecondBaseline, int samplesNum);
 
 #ifdef LINUX
 #include <sys/time.h> /* struct timeval, select() */

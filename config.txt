@@ -1,3 +1,5 @@
+# config file version at 2017-9-1
+
 # ---------------------------------------------#
 # Configuration file for DPP-PSD x740          #
 # ---------------------------------------------#
@@ -8,8 +10,9 @@
 # Output setup                                 # 
 #----------------------------------------------#
 
+WriteData                1                     # 1 = write data output to file, 0 = do no write files (monitor modality)
 OutputMode               BINARY                # Output modality: TEXT / BINARY / BOTH (text files, binary files, both types of files)
-OutputWaves742           0                   # 1 = Write all 742 waves on a binary file, 0 = do not write (default) 
+OutputWaves742           0                     # 1 = Write all 742 waves on a binary file, 0 = do not write (default) 
 
 #----------------------------------------------#
 # Connection setup                             # 
@@ -25,17 +28,17 @@ ConnectionVmeBaseAddress 33330000                     # VME Base Address : neede
 #----------------------------------------------#
 
 AcquisitionMode          LIST                  # Acquisition Mode: LIST or MIXED
-ChannelTriggerMask       FFFFFFFF              # Channel Trigger Mask 
+ChannelTriggerMask       FFFFFFFFFFFFFFFF              # Channel Trigger Mask 
 EnableExtendedTimeStamp  0                     # 1 = 48-bit Timestamp + 16-bit baseline
 ActiveChannel            0                     # Active channel for data analysis (default=0 if unset)
 EnablePlots740           0                     # Enables plotting of events for 740 board (default = 0, no plotting) - channel defined by ActiveChannel
-EnablePlots742           0                      # 1 = Plots enabled for 742 digitizers (default = 0, no plotting) - channel defined by                                             
+EnablePlots742           0                     # 1 = Plots enabled for 742 digitizers (default = 0, no plotting) - channel defined by ActiveChannel                                      
 
 #----------------------------------------------#
 # Input Signal settings                        # 
 #----------------------------------------------#
 
-PulsePolarity            1                     # 1 = Negative pulses; 0 = Positive Pulses
+PulsePolarity            0                     # 1 = Negative pulses; 0 = Positive Pulses
                                                
 EnableTestPulses         0                     # Enable internal test pulse if 1
 TestPulsesRate           0                     # 0 = 1 KHz; 1 = 10 KHz; 2 = 100 KHz; 3 = 1 MHz
@@ -54,14 +57,14 @@ DCoffset                 3 32768               #
 # PreTrigger must be > Pregate + 7
 # NOTE :
 #  RecordLength setting is not effective in list
-RecordLength             256                   #
-PreTrigger               50                    #
+RecordLength             500                   #
+PreTrigger               100                    #
 
 #----------------------------------------------#
 # Baseline settings                            # 
 #----------------------------------------------#
 
-BaselineMode             2 	                   # 0 = fixed, 1 = 4 samples, 2 = 16 samples, 3 = 64 samples, 4 = 256 samples
+BaselineMode             3 	                   # 0 = fixed, 1 = 4 samples, 2 = 16 samples, 3 = 64 samples, 4 = 256 samples
 FixedBaseline            3200                  # baseline value when BaselineMode=0
 
 #----------------------------------------------#
@@ -72,9 +75,9 @@ FixedBaseline            3200                  # baseline value when BaselineMod
 # EnableChargePedestal <value>
 # ChargeSensitivity    <value>
 
-PreGate                  20                    # gate position with respect to the trigger (in steps of 16 ns) 	
+PreGate                  25                    # gate position with respect to the trigger (in steps of 16 ns) 	
 EnableChargePedestal     0                     # 0 = disabled; 1 = enabled (add 1024 to the charge)
-ChargeSensitivity        5                     # 0=0.16pC, 1=0.32pC, 2=0.64pC, 3=1.28pC, 4=2.56pC, 5=5.12pC, 6=10.24pC, 7=20.48pC
+ChargeSensitivity        0                     # 0=0.16pC, 1=0.32pC, 2=0.64pC, 3=1.28pC, 4=2.56pC, 5=5.12pC, 6=10.24pC, 7=20.48pC
 GateWidth                0 200                 # gate width (in steps of 16 ns)
 GateWidth                1 200                 # gate width (in steps of 16 ns)
 GateWidth                2 200                 # gate width (in steps of 16 ns)
@@ -165,12 +168,8 @@ TriggerThreshold         63 10
 # Advanced settings                            # 
 #----------------------------------------------#
  
-
 NevAggr                  0                     # Number of event per aggregate (0= automatic)
-
-RunDelay                 0                    # Sync run delay in units of trigger clock (16 ns for V1740D digitizer)
-
-
+RunDelay                 18                    # Sync run delay in units of trigger clock (16 ns for V1740D digitizer)
 
 
 
@@ -210,18 +209,32 @@ v1742_ConetNode                  0    1                     # Connection Node : 
 v1742_BaseAddress                0    0x33100000              # VME Base Address : needed only for VME access via USB/Optical Bridge - HEX NUMBER
 v1742_FastTriggerThreshold       0    20934                 # TR Trigger threshold (for fast triggering)
 v1742_FastTriggerOffset          0    32768                 # TR Offset adjust (DAC value)
-v1742_DCoffset                   0    0x7FFF                  # input DC offset adjust (DAC value) - HEX NUMBER
+v1742_DCoffset                   0    0x5FFF                  # input DC offset adjust (DAC value) - HEX NUMBER
 v1742_ChannelThreshold           0    1500                  # Threshold for Time Pulse Calculation
 v1742_TRThreshold                0    1500                  # Threshold for Time Pulse Calculation
 v1742_ChannelPulseEdge           0    1                     # 0= Rising Edge, 1 = Falling Edge
 v1742_PostTrigger                0    0                     # Post trigger in percent of the acquisition window
-v1742_RunDelay                   0    0                    # Sync run delay in units of trigger clock ( 1/(2*58,59375) for v1742 digitizers) 
+v1742_RunDelay                   0    1                     # Sync run delay in units of trigger clock ( 1/(2*58,59375) for v1742 digitizers) 
+
+# PARAMETERS FOR TIMING COMPUTATION ON THE FLY
+v1742_TRPulsePolarity            0    1                     # polarity of trigger pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+v1742_WavePulsePolarity          0    1                     # polarity of channel pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+v1742_BaselineStart              0    0                     # sample from which baseline computation starts
+v1742_BaselineSamples            0    600                   # number of samples used to compute baseline
+v1742_DeltaSquareStartPoint      0    90                    # distance in samples from calculated begin square pulse to begin of second baseline calculation 
+v1742_LengthSecondBaseline       0    50                    # number of samples used to compute second baseline
+v1742_RegressionSamplesHalfNum   0    4                     # number of samples used to compute linear regression of wave rise/fall
+
+
 
 # Register direct write, format:
 # RegisterWrite     <digitizer>  <address> <value>
 
 RegisterWrite                    0    0x10DC    0x8000      # setting for offset of NIM signals in fast TR 0 and 1
+RegisterWrite                    0    0x12DC    0x8000      # setting for offset of NIM signals in fast TR 2 and 3
 RegisterWrite                    0    0x10D4    0x51C6      # setting for threshold of NIM signals in fast TR 0 and 1
+RegisterWrite                    0    0x12D4    0x51C6      # setting for threshold of NIM signals in fast TR 2 and 3
+
 RegisterWrite                    0    0x811C    0x0904
 RegisterWrite                    0    0x81A0    0x2
 RegisterWrite                    0    0x8000    0x00029950
@@ -237,18 +250,29 @@ v1742_ConetNode                  1    2                     # Connection Node : 
 v1742_BaseAddress                1    0x32100000              # VME Base Address : needed only for VME access via USB/Optical Bridge - HEX NUMBER
 v1742_FastTriggerThreshold       1    20934                 # TR Trigger threshold (for fast triggering)
 v1742_FastTriggerOffset          1    32768                 # TR Offset adjust (DAC value)
-v1742_DCoffset                   1    0x7FFF                  # input DC offset adjust (DAC value) - HEX NUMBER
+v1742_DCoffset                   1    0x5FFF                  # input DC offset adjust (DAC value) - HEX NUMBER
 v1742_ChannelThreshold           1    1500                  # Threshold for Time Pulse Calculation
 v1742_TRThreshold                1    1500                  # Threshold for Time Pulse Calculation
 v1742_ChannelPulseEdge           1    1                     # 0= Rising Edge, 1 = Falling Edge
 v1742_PostTrigger                1    0                     # Post trigger in percent of the acquisition window
 v1742_RunDelay                   1    0                     # Sync run delay in units of trigger clock ( 1/(2*58,59375) for v1742 digitizers) 
 
+# PARAMETERS FOR TIMING COMPUTATION ON THE FLY
+v1742_TRPulsePolarity            1    1                     # polarity of trigger pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+v1742_WavePulsePolarity          1    1                     # polarity of channel pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+v1742_BaselineStart              1    0                     # sample from which baseline computation starts
+v1742_BaselineSamples            1    600                   # number of samples used to compute baseline
+v1742_DeltaSquareStartPoint      1    90                    # distance in samples from calculated begin square pulse to begin of second baseline calculation 
+v1742_LengthSecondBaseline       1    50                    # number of samples used to compute second baseline
+v1742_RegressionSamplesHalfNum   1    4                     # number of samples used to compute linear regression of wave rise/fall
+
 # Register direct write, format:
 # RegisterWrite     <digitizer>  <address> <value>
 
 RegisterWrite                    1      0x10DC     0x8000    # setting for offset of NIM signals in fast TR 0 and 1
+RegisterWrite                    1      0x12DC     0x8000    # setting for offset of NIM signals in fast TR 2 and 3
 RegisterWrite                    1      0x10D4     0x51C6    # setting for threshold of NIM signals in fast TR 0 and 1
+RegisterWrite                    1      0x12D4     0x51C6    # setting for threshold of NIM signals in fast TR 2 and 3
 RegisterWrite                    1      0x811C     0x000d0900
 RegisterWrite                    1      0x81A0     0x2
 RegisterWrite                    1      0x8110     0x80000100

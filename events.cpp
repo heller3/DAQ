@@ -9,12 +9,7 @@
 // It then sorts the events of the different boards in global events, using as criterium the corrected trigger time tags.
 // The events will be saved in a file called
 //
-// events.dat
-//
-// while some histograms are saved in the root file
-//
-// histograms.root
-//-------------------------------------------
+//--------------------------
 
 
 #include <stdio.h>
@@ -249,7 +244,7 @@ int main(int argc,char **argv)
   bool thereIsStillData = true;
   while(thereIsStillData) //sorting loop
   {
-    counter++;
+    
     EventFormat_t event;
     bool isSeed[3] = {false,false,false};
 
@@ -273,7 +268,7 @@ int main(int argc,char **argv)
     }
 
 
-    // std::cout << std::fixed << std::showpoint << std::setprecision(4) << counter << "\t" << ev740.TTT << "\t" << ev742_0.TTT[0] << "\t" << ev742_1.TTT[0] << std::endl;
+//     std::cout << std::fixed << std::showpoint << std::setprecision(4) << counter << "\t" << ev740.TTT << "\t" << ev742_0.TTT[0] << "\t" << ev742_1.TTT[0] << std::endl;
     // std::cout << counter << "\r";
     GetNextEvent[0] = false;
     GetNextEvent[1] = false;
@@ -302,15 +297,15 @@ int main(int argc,char **argv)
       if(seedTime == vec[i])
         isSeed[i] = true;
     }
-    // std::cout << "\t" << seedTime << "\t"<< isSeed[0] << isSeed[1] << isSeed[2] << std::endl;
+//     std::cout << "\t" << seedTime << "\t"<< isSeed[0] << isSeed[1] << isSeed[2] << std::endl;
     // check if the other two times are in the matching window
     bool matchingEvent[3] = {true,true,true};
     for(int i = 0 ; i < vec.size(); i++)
     {
-      // std::cout << "\t" << seedTime << " " << vec[i] << " " << fabs(seedTime - vec[i]) << " ";
+//       std::cout << "\t" << seedTime << " " << vec[i] << " " << fabs(seedTime - vec[i]) << " ";
       if(fabs(seedTime - vec[i]) > coincidence )
         matchingEvent[i] = false;
-      // std::cout << matchingEvent[i] << std::endl;
+//       std::cout << matchingEvent[i] << std::endl;
 
     }
     // std::cout <<std::endl;
@@ -359,13 +354,15 @@ int main(int argc,char **argv)
         }
       }
     }
-    if( (file0N % fileCounter[0])  == 0)
+    if( ((100 * fileCounter[0]/file0N) % 10)  == 0)
     {
       std::cout << 100 * fileCounter[0]/file0N << "%\t"
                 << 100 * fileCounter[1]/file1N << "%\t"
                 << 100 * fileCounter[2]/file2N << "%\t"
                 << "\r";
     }
+    counter++;
+    vec.clear();
   }
 
   std::cout << std::endl;
