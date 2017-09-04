@@ -2,13 +2,7 @@
 
 /*
 program to test interpolation methods
-for the moment, finds 2 "baselines" and compute edge time as the time of passing the half distance between them
-FIXME
-the second baseline is approx (computation includes pat of the rise and of the fall)
-the first baseline suffers from non ideal corrections (probably)
-need to skip first bin of the wave (sometimes it's an outlier, need to find a workaround)
-
-run this program in the folders where the waves are (waves name are hardcoded!!), then run the sort program on the results
+run this program in the folders where the waves are (waves name are hardcoded!!)
 */
 
 #include <stdio.h>
@@ -36,12 +30,6 @@ run this program in the folders where the waves are (waves name are hardcoded!!)
 #include <float.h>  //FLT_MAX
 #define DEBUG 0
 
-// struct EventFormat_t
-// {
-//   double GlobalTTT;                         /*Trigger time tag of the event. For now, it's the TTT of the 740 digitizer */
-//   uint16_t Charge[64];                      /*Integrated charge for all the channels of 740 digitizer*/
-//   double PulseEdgeTime[64];                 /*PulseEdgeTime for each channel in both timing digitizers*/
-// } __attribute__((__packed__));
 
 struct WaveFormat_t
 {
@@ -82,7 +70,7 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, int thres
   int foundEnd = 0;
   double secondBaseline = 0;
   double timesBase = 1.0;
-  
+
   //look for start of fall or rise of the pulse
   for (i=(int)(Tstart); i < length-1; i++) {
 
@@ -119,11 +107,11 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, int thres
   }
 
   if(!foundStart) return -1;
-  
+
   int startSecondBaseline = squareStartPoint + 90; // extremely hardcoded - circa 800
   int endSecondBaseline = startSecondBaseline + 50; // extremely hardcoded - circa 850
-  
-  for (i=startSecondBaseline; i < endSecondBaseline; i++) 
+
+  for (i=startSecondBaseline; i < endSecondBaseline; i++)
   {
     secondBaseline += ((double)data[i])/((double) (endSecondBaseline - startSecondBaseline)); // i.e. 50
   }
@@ -141,10 +129,10 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, int thres
 //   int crossSample = -1;
 
   for (i=(int)(Tstart); i < length-1; ++i) {
-    if ((edge == CAEN_DGTZ_TriggerOnFallingEdge) && (data[i] >= thresholdReal) && (data[i+1] < thresholdReal)) 
+    if ((edge == CAEN_DGTZ_TriggerOnFallingEdge) && (data[i] >= thresholdReal) && (data[i+1] < thresholdReal))
     {
 //       crossSample = i;
-      for(j = i - samplesNum; j < i + samplesNum; j++) 
+      for(j = i - samplesNum; j < i + samplesNum; j++)
       {
         sumx += (float) j;
         sumy += data[j];
@@ -157,10 +145,10 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, int thres
       //crosspoint = i + ((double)(data[i] - threshold)/(double)(data[i]-data[i+1]));
       break;
     }
-    if ((edge == CAEN_DGTZ_TriggerOnRisingEdge) && (data[i] <= thresholdReal) && (data[i+1] > thresholdReal)) 
+    if ((edge == CAEN_DGTZ_TriggerOnRisingEdge) && (data[i] <= thresholdReal) && (data[i+1] > thresholdReal))
     {
 //       crossSample = i;
-      for(j = i - samplesNum; j < i + samplesNum; j++) 
+      for(j = i - samplesNum; j < i + samplesNum; j++)
       {
         sumx += (float) j;
         sumy += data[j];
@@ -185,7 +173,7 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, int thres
 //----------------//
 int main(int argc,char **argv)
 {
-  
+
   // files input standard
   const int groups = 4;
   const int channelsPerGroup = 8;
@@ -244,7 +232,7 @@ int main(int argc,char **argv)
   FILE **      binOut742;
   binOut742 = (FILE**) malloc ( NumOfV1742 * sizeof(FILE*));
   char b742FileName[100];
-  
+
   for(j=0; j<NumOfV1742;j++)
   {
     if(alternativeReference)
@@ -255,15 +243,15 @@ int main(int argc,char **argv)
   }
   std::cout << "Reading files..." <<std::endl;
 //   for(int f = 0; f < (NumOfV1742*groups) ; f++)
-    
+
   bool thereIsStillData = true;
   long long int counter = 0;
-  
+
   double durationTR;
   long long int counterTR = 0;
   double durationWave;
   long long int counterWave = 0;
-  
+
   while(thereIsStillData)
   {
     for(j=0;j<NumOfV1742;j++) // loop on digitizers
@@ -279,29 +267,29 @@ int main(int argc,char **argv)
         int nSamples = 1024;
         std::clock_t start;
         start = std::clock();
-        
-        // temp mod: force trigger to be ch0 
-        
+
+        // temp mod: force trigger to be ch0
+
         double TriggerEdgeTime = interpolateWithMultiplePoints(WaveT, nSamples, 700,CAEN_DGTZ_TriggerOnFallingEdge , 0,baseLineSamples); // interpolate with line, Type = 1 means trigger wave
         durationTR += (std::clock() - start)/((double) CLOCKS_PER_SEC);
         counterTR++;
-        
+
         for(ch = 0 ; ch < channelsPerGroup ; ch++) // loop on channels
         {
           WaveFormat_t chWave;
           if((fread((void*)&chWave, sizeof(chWave), 1, waveFile[j*(groups*channelsPerGroup)+gr*(channelsPerGroup)+ch])) != 1) //read and check if there is still data
             thereIsStillData = false;
-          
+
           if(alternativeReference)
           {
             if( (j*(groups*channelsPerGroup)+gr*(channelsPerGroup)+ch) == 0 ) //only ch0 as reference, so only for first v1742 and first gr is affected
             {
-              
+
               float* AltWave = chWave.sample;
               TriggerEdgeTime = interpolateWithMultiplePoints(AltWave, nSamples, 700,CAEN_DGTZ_TriggerOnFallingEdge , 0,baseLineSamples); //overwrite TriggerEdgeTime
             }
           }
-          
+
           float* WaveP = chWave.sample;
           start = std::clock();
           double PulseEdgeTime = interpolateWithMultiplePoints(WaveP, nSamples, 700,CAEN_DGTZ_TriggerOnFallingEdge , 0,baseLineSamples); // interpolate with line, Type = 0 means pulse wave
@@ -328,10 +316,10 @@ int main(int argc,char **argv)
     counter++;
   }
   std::cout << std::endl;
-  
+
   durationTR = durationTR / ((double) counterTR);
   durationWave = durationWave / ((double) counterWave);
-  
+
   std::cout << "durationTR   = " << durationTR << std::endl;
   std::cout << "durationWave = " << durationWave << std::endl;
   unsigned int i;
