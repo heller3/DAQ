@@ -127,7 +127,7 @@ typedef struct
   //V1742
   uint32_t NumOfV1742;                   //number of V1742 digitizers in the system - NB max is 8
   uint32_t registerWritesCounter;
-  uint32_t v1742_TriggerEdge;   
+  uint32_t v1742_TriggerPolarity;   
   uint32_t v1742_RecordLength;  
   uint32_t v1742_MatchingWindow;
   uint32_t v1742_IOlevel;       
@@ -135,6 +135,14 @@ typedef struct
   uint32_t v1742_DRS4Frequency; 
   uint32_t v1742_StartMode;     
   uint32_t v1742_EnableLog;
+  uint32_t v1742_pairTimingChannels;
+  
+  uint32_t v1742_Pair_WavePulsePolarity        ;  // polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+  uint32_t v1742_Pair_BaselineStart            ;  // sample from which baseline computation starts
+  uint32_t v1742_Pair_BaselineSamples          ;  // number of samples used to compute baseline
+  uint32_t v1742_Pair_DeltaSquareStartPoint    ;  // distance in samples from calculated begin square pulse to begin of second baseline calculation 
+  uint32_t v1742_Pair_LengthSecondBaseline     ;  // number of samples used to compute second baseline
+  uint32_t v1742_Pair_RegressionSamplesHalfNum ;  // number of samples used to compute linear regression of wave rise/fall
   
   
   uint32_t v1742_ConnectionType[8];
