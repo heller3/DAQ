@@ -1434,7 +1434,7 @@ int run_acquisition() {
                 
                 if(PulseEdgeTime >= 0)
                 {
-                  PulseEdgeTime = TriggerEdgeTime - PulseEdgeTime;
+                  PulseEdgeTime = PulseEdgeTime - TriggerEdgeTime ;
                   if(gParams.WriteData) // write twice the PulseEdgeTime, to maintain the output format 
                   {
                     if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
@@ -1542,7 +1542,7 @@ int run_acquisition() {
                 
                 if(PulseEdgeTime >= 0)
                 {
-                  PulseEdgeTime = TriggerEdgeTime - PulseEdgeTime;
+                  PulseEdgeTime = PulseEdgeTime - TriggerEdgeTime;
                   if(gParams.WriteData)
                   {
                     if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
