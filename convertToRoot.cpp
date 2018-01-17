@@ -159,7 +159,17 @@ int main(int argc,char **argv)
   TH1F *histo_sameTR    = new TH1F("sameTR","sameTR",nbinsCTR,-boundary,boundary);
   TH1F *histo_sameBoard = new TH1F("sameBoard","sameBoard",nbinsCTR,-boundary,boundary);
   TH1F *histo_diffBoard = new TH1F("diffBoard","diffBoard",nbinsCTR,-boundary,boundary);
-
+  
+  histo_sameGroup->GetXaxis()->SetTitle("Time [ps]");
+  histo_sameGroup->SetTitle("Time difference between channels on same group");
+  histo_AltSameGroup->GetXaxis()->SetTitle("Time [ps]");
+  histo_AltSameGroup->SetTitle("Time difference between channels on same group, ch0 as ref.");
+  histo_sameTR->GetXaxis()->SetTitle("Time [ps]");
+  histo_sameTR->SetTitle("Time difference between channels on same board and same TRn");
+  histo_sameBoard->GetXaxis()->SetTitle("Time [ps]");
+  histo_sameBoard->SetTitle("Time difference between channels on same board, but different TRn");
+  histo_diffBoard->GetXaxis()->SetTitle("Time [ps]");
+  histo_diffBoard->SetTitle("Time difference between channels on different 742 boards");
 
   long long int file0N = filesize(file0) /  sizeof(ev);
   std::cout << "Events in file " << file0 << " = " << file0N << std::endl;
