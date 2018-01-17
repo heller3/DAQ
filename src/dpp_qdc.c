@@ -10,8 +10,6 @@
 #include <float.h> 
 /* Globals */
 
-//////////////////////modified apolesel////////////////////////
-
 int GetNextEvent[2]={1,1};
 int MatchingEvents=0;
 
@@ -78,6 +76,9 @@ CAEN_DGTZ_X742_EVENT_t* Event742[2];
 char* buffer742[2];
 uint32_t buffer742Size[2];
 DataCorrection_t* Table;
+
+// data correcitons for 742?
+CAEN_DGTZ_DRS4Correction_t **X742Tables;
 
 uint64_t** Nroll;
 double **TTT, **PrevTTT;
@@ -693,7 +694,7 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, CAEN_DGTZ
   int foundStart = 0;
   int foundEnd = 0;
   double secondBaseline = 0;
-  double timesBase = 1.0;
+  double timesBase = 2.0;
   
   //look for start of fall or rise of the pulse
   for (i=(int)(Tstart); i < length-1; i++) {
@@ -850,7 +851,21 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
 //     }
     printf("%f GHz\n\n",1.0/Ts);
     
-    if (ret = LoadCorrectionTables(tHandle[i], &Table[i], 0, params->v1742_DRS4Frequency))
+    //previous correction table loading data 
+//     if (ret = LoadCorrectionTables(tHandle[i], &Table[i], 0, params->v1742_DRS4Frequency))
+//     {
+//       printf("Error loading data correction tables\n");      
+//       return -1;
+//     }
+//     printf("Correction Tables Loaded!\n");
+//     if ((ret = CAEN_DGTZ_EnableDRS4Correction(tHandle[i])) != CAEN_DGTZ_Success)
+//     {
+//       printf("Error loading data correction tables\n");      
+//       return -1;
+//     }
+//     printf("Correction Tables enabled!\n\n");
+    
+    if (ret = CAEN_DGTZ_LoadDRS4CorrectionData(tHandle[i], params->v1742_DRS4Frequency))
     {
       printf("Error loading data correction tables\n");      
       return -1;
@@ -862,6 +877,7 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
       return -1;
     }
     printf("Correction Tables enabled!\n\n");
+    
     ret |= CAEN_DGTZ_SetRecordLength(tHandle[i], params->v1742_RecordLength); 
     ret |= CAEN_DGTZ_SetPostTriggerSize(tHandle[i], params->v1742_PostTrigger[i]);
     ret |= CAEN_DGTZ_SetIOLevel(tHandle[i], params->v1742_IOlevel);
@@ -2025,6 +2041,10 @@ int setup_acquisition(char *fname) {
     Nroll[iMalloc] = (uint64_t *) calloc (GROUPS_742 , sizeof(uint64_t));
   
   Table = (DataCorrection_t*) calloc (gParams.NumOfV1742,sizeof(DataCorrection_t));
+  
+//   X742Tables = (CAEN_DGTZ_DRS4Correction_t **) calloc(gParams.NumOfV1742 , sizeof(CAEN_DGTZ_DRS4Correction_t*));
+//   for(iMalloc = 0; iMalloc < gParams.NumOfV1742; iMalloc++) 
+//     X742Tables[iMalloc] = (CAEN_DGTZ_DRS4Correction_t *) calloc (GROUPS_742 , sizeof(CAEN_DGTZ_DRS4Correction_t));
   
 //   memset(TTT, 0, sizeof(TTT[0][0]) * gParams.NumOfV1742 * GROUPS_742);
 //   memset(PrevTTT, 0, sizeof(PrevTTT[0][0]) * gParams.NumOfV1742 * GROUPS_742);
