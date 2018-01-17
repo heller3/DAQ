@@ -505,7 +505,10 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       
       if (strcmp(str, "v1742_PairTimingChannels") == 0) {
         fscanf(parameters_file, "%d", &params->v1742_pairTimingChannels);
-        printf("Pairing Timing Channels!\n");
+        if(params->v1742_pairTimingChannels)
+        {
+          printf("Pairing Timing Channels!\n");
+        }
       }
       if (strcmp(str, "v1742_Pair_WavePulsePolarity") == 0) {
         fscanf(parameters_file, "%d", &params->v1742_Pair_WavePulsePolarity);
