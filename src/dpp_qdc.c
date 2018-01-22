@@ -1190,7 +1190,7 @@ int run_acquisition() {
   }
   gLoops += 1;
   if (ret) {
-    printf("Readout Error\n");
+    printf("Readout Error, ret = %d \n",ret);
     return -1;        
   }   
   
