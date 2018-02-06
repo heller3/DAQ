@@ -1236,11 +1236,14 @@ int run_acquisition() {
       {
         
         gEvCnt[i]++;
-        uint32_t Charge;       
+        uint16_t Charge;       
 	// HISTO_NBIN is 4096
 	// gEvent[i][j].Charge is from 0 to 65536 (uint16_t)
 	// so rebinning means dividing charge by 2^4
+        // this is ONLY for the histogram visualization
+        // the cherge exported to binary files is the original one (gEvent[i][j].Charge)
         Charge = ( (gEvent[i][j].Charge  >> 4) & 0xFFFF);  /* rebin charge to 4Kchannels */
+//         Charge = ( (gEvent[i][j].Charge ) & 0xFFFF);
         
         /*Update energy histogram*/
         if ((Charge < HISTO_NBIN) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT) && (gEvent[i][j].Overrange == 0))

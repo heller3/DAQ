@@ -126,7 +126,7 @@ int main(int argc,char **argv)
   ULong64_t DeltaTimeTag = 0;
   ULong64_t ExtendedTimeTag = 0;
   ULong64_t startTimeTag = 0;
-  Short_t charge[64];
+  UShort_t charge[64];
   Float_t timestamp[64];
   //the ttree variable
   TTree *t1 ;
@@ -269,7 +269,7 @@ int main(int argc,char **argv)
     for(int i = 0 ; i < 64 ; i ++)
     {
 //       std::cout << ev.Charge[i] << " ";
-      charge[i] = (Short_t) ev.Charge[i];
+      charge[i] = (UShort_t) ev.Charge[i];
     }
     for(int i = 0 ; i < 64 ; i ++)
     {
