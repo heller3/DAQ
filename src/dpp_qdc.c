@@ -235,7 +235,7 @@ void clear_screen()
  * * Set default parameters for the acquisition
  */
 void set_default_parameters(BoardParameters *params) {
-  int i;
+  int i,j;
   
   params->WriteData         = 1;             /*by default write output to data files*/
   params->OutputMode        = OUTPUTMODE_BINARY;
@@ -283,13 +283,25 @@ void set_default_parameters(BoardParameters *params) {
       params->registerWritesCounter = 0;
     params->NumOfV1742            = 0;  // by default 0
     
-    params->v1742_pairTimingChannels = 0;     
+    for(i = 0; i < 8 ; i++) {
+      for(j = 0; j < 4 ; j++) {
+        params->v1742_pairTimingChannels[i][j] = 0;     
+      }
+    }
     params->v1742_Pair_WavePulsePolarity        = 0; 
     params->v1742_Pair_BaselineStart            = 0; 
     params->v1742_Pair_BaselineSamples          = 0; 
     params->v1742_Pair_DeltaSquareStartPoint    = 0; 
     params->v1742_Pair_LengthSecondBaseline     = 0; 
     params->v1742_Pair_RegressionSamplesHalfNum = 0;
+    
+    params->v1742_Single_WavePulsePolarity        = 0; 
+    params->v1742_Single_BaselineStart            = 0; 
+    params->v1742_Single_BaselineSamples          = 0; 
+    params->v1742_Single_DeltaSquareStartPoint    = 0; 
+    params->v1742_Single_LengthSecondBaseline     = 0; 
+    params->v1742_Single_RegressionSamplesHalfNum = 0;
+    
     
     
     params->v1742_TriggerPolarity = 0;  // by default 0  
@@ -504,11 +516,15 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       //params->v1742_Pair_RegressionSamplesHalfNum = 0;
       
       if (strcmp(str, "v1742_PairTimingChannels") == 0) {
-        fscanf(parameters_file, "%d", &params->v1742_pairTimingChannels);
-        if(params->v1742_pairTimingChannels)
-        {
-          printf("Pairing Timing Channels!\n");
-        }
+        int board;
+        int gr;
+        fscanf(parameters_file, "%d", &board);
+        fscanf(parameters_file, "%d", &gr);
+        fscanf(parameters_file, "%d", &params->v1742_pairTimingChannels[board][gr]);
+//         if(params->v1742_pairTimingChannels)
+//         {
+        printf("Timing Channels Pairing [board|group|choice] = %d %d %d\n",board,gr,params->v1742_pairTimingChannels[board][gr]);
+//         }
       }
       if (strcmp(str, "v1742_Pair_WavePulsePolarity") == 0) {
         fscanf(parameters_file, "%d", &params->v1742_Pair_WavePulsePolarity);
@@ -527,6 +543,25 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       }
       if (strcmp(str, "v1742_Pair_RegressionSamplesHalfNum") == 0) {
         fscanf(parameters_file, "%d", &params->v1742_Pair_RegressionSamplesHalfNum);
+      }
+      
+      if (strcmp(str, "v1742_Single_WavePulsePolarity") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_WavePulsePolarity);
+      }
+      if (strcmp(str, "v1742_Single_BaselineStart") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_BaselineStart);
+      }
+      if (strcmp(str, "v1742_Single_BaselineSamples") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_BaselineSamples);
+      }
+      if (strcmp(str, "v1742_Single_DeltaSquareStartPoint") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_DeltaSquareStartPoint);
+      }
+      if (strcmp(str, "v1742_Single_LengthSecondBaseline") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_LengthSecondBaseline);
+      }
+      if (strcmp(str, "v1742_Single_RegressionSamplesHalfNum") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_RegressionSamplesHalfNum);
       }
       
       
@@ -1321,7 +1356,7 @@ int run_acquisition() {
     
   
   //analyze V1742 data 
-  for(i = 0 ; i < gParams.NumOfV1742 ; i++) 
+  for(i = 0 ; i < gParams.NumOfV1742 ; i++) // run on all timing digitizers
   {  
 //     int RefChannel =16; 
     ret |= CAEN_DGTZ_GetNumEvents(tHandle[i], buffer742[i], buffer742Size[i], &NumEvents742[i]);
@@ -1332,9 +1367,9 @@ int run_acquisition() {
     
     unsigned int j;
     Tt = 1000.0/(2.0*58.59375);
-    if(NumEvents742[i])
+    if(NumEvents742[i])                   // it there is at least one event
     {
-      for(j=0 ; j<NumEvents742[i] ; j++)
+      for(j=0 ; j<NumEvents742[i] ; j++)  // run on all events
       {
         ret = CAEN_DGTZ_GetEventInfo(tHandle[i], buffer742[i], buffer742Size[i], j, &EventInfo[i], &EventPtr[i]);
         ret = CAEN_DGTZ_DecodeEvent(tHandle[i], EventPtr[i], (void**)&Event742[i]);
@@ -1343,9 +1378,9 @@ int run_acquisition() {
         unsigned int gr;
         
         //save all time tags of each v1742 digitizer
-        for(gr = 0 ; gr < gParams.Groups742 ; gr++)
+        for(gr = 0 ; gr < gParams.Groups742 ; gr++)     //run on all groups of this digitizer
         {
-          if (Event742[i]->GrPresent[gr])
+          if (Event742[i]->GrPresent[gr])               // if the group is active
           {
             // TTT Calculation
             TTT[i][gr] = ((Nroll[i][gr]<<30) + (Event742[i]->DataGroup[gr].TriggerTimeTag & 0x3FFFFFFF))*Tt;
@@ -1377,6 +1412,7 @@ int run_acquisition() {
             uint32_t nSamplesTR = Event742[i]->DataGroup[gr].ChSize[8];
             TriggerWave = Event742[i]->DataGroup[gr].DataChannel[8]; //see ./home/caenvme/Programs/CAEN/CAENDigitizer_2.7.1/include
             
+            // calculate threshold crossing for trigger wave of this group
             double TriggerEdgeTime = interpolateWithMultiplePoints(TriggerWave, 
                                                                    nSamplesTR, 
                                                                    gParams.v1742_TRpulsePolarity[i], 
@@ -1386,13 +1422,10 @@ int run_acquisition() {
                                                                    gParams.v1742_LengthSecondBaseline[i],
                                                                    gParams.v1742_RegressionSamplesHalfNum[i]);
             
-            // interpolate with line, Type = 1 means trigger wave 
-//             double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart,int WaveType,int baseLineSamples, int deltaSquareStartPoint, int lengthSecondBaseline, int samplesNum);
-
             
             if(gParams.OutputWaves742)
             {
-              //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
+              //first write the TTT of this wave for this group
               fwrite(&TTT[i][gr],sizeof(double),1,trFile[i*gParams.Groups742 + gr]); 
               unsigned int w;
               for(w=0;w<nSamplesTR;w++) //then the wave
@@ -1407,17 +1440,17 @@ int run_acquisition() {
             //for consistency of the output data, the summed pulse is written twice in the output
             
 //             int gParams.pairTimingChannels = 1;
-            if(gParams.v1742_pairTimingChannels)
+            if(gParams.v1742_pairTimingChannels[i][gr])
             {
-              for(ch = 0 ; ch < gParams.ChannelsPerGroup742 ; ch = ch+2) // run only on even channels
+              for(ch = 0 ; ch < gParams.ChannelsPerGroup742 ; ch = ch+2)           // run only on even channels
               {
                 //interpolate the wave
-                uint32_t nSamplesCH = Event742[i]->DataGroup[gr].ChSize[ch];  // get number of samples
+                uint32_t nSamplesCH = Event742[i]->DataGroup[gr].ChSize[ch];       // get number of samples
                 ChannelWave_even = Event742[i]->DataGroup[gr].DataChannel[ch];     // get the wave
-                ChannelWave_odd = Event742[i]->DataGroup[gr].DataChannel[ch+1];     // get the wave
+                ChannelWave_odd = Event742[i]->DataGroup[gr].DataChannel[ch+1];    // get the wave
                 ChannelWave_result = (float*) malloc(nSamplesCH*sizeof(float));
                 unsigned int w;
-                for(w=0;w<nSamplesCH;w++) // subtract next wave to this one
+                for(w=0;w<nSamplesCH;w++)                                          // subtract next wave to this one
                 {
                   ChannelWave_result[w] = ChannelWave_even[w] - ChannelWave_odd[w];
                 }
@@ -1542,12 +1575,12 @@ int run_acquisition() {
                 
                 double PulseEdgeTime = interpolateWithMultiplePoints(ChannelWave, 
                                                                      nSamplesCH, 
-                                                                     gParams.v1742_WavePulsePolarity[i], 
-                                                                     gParams.v1742_BaselineStart[i],
-                                                                     gParams.v1742_BaselineSamples[i],
-                                                                     gParams.v1742_DeltaSquareStartPoint[i],
-                                                                     gParams.v1742_LengthSecondBaseline[i],
-                                                                     gParams.v1742_RegressionSamplesHalfNum[i]);
+                                                                     gParams.v1742_Single_WavePulsePolarity, 
+                                                                     gParams.v1742_Single_BaselineStart,
+                                                                     gParams.v1742_Single_BaselineSamples,
+                                                                     gParams.v1742_Single_DeltaSquareStartPoint,
+                                                                     gParams.v1742_Single_LengthSecondBaseline,
+                                                                     gParams.v1742_Single_RegressionSamplesHalfNum);
                 
                 
                 if(gParams.OutputWaves742)
