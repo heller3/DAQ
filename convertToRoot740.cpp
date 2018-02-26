@@ -69,7 +69,7 @@ int main(int argc,char **argv)
   std::string MakeFolder;
   MakeFolder = "mkdir " + dirName;
   system(MakeFolder.c_str());
-  
+
   //declare ROOT ouput TTree and file
   ULong64_t DeltaTimeTag = 0;
   ULong64_t ExtendedTimeTag = 0;
@@ -120,7 +120,7 @@ int main(int argc,char **argv)
   int NumOfRootFile = 0;
   long long int file0N = filesize(file0) /  sizeof(ev);
   std::cout << "Events in file " << file0 << " = " << file0N << std::endl;
-  
+
   while(fread((void*)&ev, sizeof(ev), 1, fIn) == 1)
   {
     if( listNum == 0 ){
@@ -134,7 +134,7 @@ int main(int argc,char **argv)
         stypes.str(std::string());
         charge[i] = 0;
         snames << "ch" << i;
-        stypes << "ch" << i << "/S";
+        stypes << "ch" << i << "/s";
         names = snames.str();
         types = stypes.str();
         t1->Branch(names.c_str(),&charge[i],types.c_str());
@@ -169,7 +169,7 @@ int main(int argc,char **argv)
       fTree->Close();
       //delete previous ttree
       delete t1;
-      
+
       //create new ttree
       t1 = new TTree("adc","adc");
       t1->Branch("ExtendedTimeTag",&ExtendedTimeTag,"ExtendedTimeTag/l");   //absolute time tag of the event
@@ -181,7 +181,7 @@ int main(int argc,char **argv)
         stypes.str(std::string());
         charge[i] = 0;
         snames << "ch" << i;
-        stypes << "ch" << i << "/S";
+        stypes << "ch" << i << "/s";
         names = snames.str();
         types = stypes.str();
         t1->Branch(names.c_str(),&charge[i],types.c_str());
@@ -199,10 +199,10 @@ int main(int argc,char **argv)
         t1->Branch(names.c_str(),&timestamp[i],types.c_str());
       }
       filePart++;
-      
+
       //std::cout << counter << std::endl;
-      
-    }    
+
+    }
 //     if(counter >= 3000000)
 //       break;
     // std::cout << std::fixed << std::showpoint << std::setprecision(4) << ev.TTT << " ";
@@ -246,7 +246,7 @@ int main(int argc,char **argv)
   fTreeFinal->cd();
   t1->Write();
   fTreeFinal->Close();
-  
+
   std::cout << "Events exported = " << counter << std::endl;
 
   fclose(fIn);

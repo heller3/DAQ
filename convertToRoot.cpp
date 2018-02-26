@@ -159,7 +159,7 @@ int main(int argc,char **argv)
   TH1F *histo_sameTR    = new TH1F("sameTR","sameTR",nbinsCTR,-boundary,boundary);
   TH1F *histo_sameBoard = new TH1F("sameBoard","sameBoard",nbinsCTR,-boundary,boundary);
   TH1F *histo_diffBoard = new TH1F("diffBoard","diffBoard",nbinsCTR,-boundary,boundary);
-  
+
   histo_sameGroup->GetXaxis()->SetTitle("Time [ps]");
   histo_sameGroup->SetTitle("Time difference between channels on same group");
   histo_AltSameGroup->GetXaxis()->SetTitle("Time [ps]");
@@ -187,7 +187,7 @@ int main(int argc,char **argv)
         stypes.str(std::string());
         charge[i] = 0;
         snames << "ch" << i;
-        stypes << "ch" << i << "/S";
+        stypes << "ch" << i << "/s";
         names = snames.str();
         types = stypes.str();
         t1->Branch(names.c_str(),&charge[i],types.c_str());
@@ -234,7 +234,7 @@ int main(int argc,char **argv)
         stypes.str(std::string());
         charge[i] = 0;
         snames << "ch" << i;
-        stypes << "ch" << i << "/S";
+        stypes << "ch" << i << "/s";
         names = snames.str();
         types = stypes.str();
         t1->Branch(names.c_str(),&charge[i],types.c_str());
