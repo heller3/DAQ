@@ -1,4 +1,4 @@
-# config file version at 2017-11-28
+# config file version at 2017-9-1
 
 # ---------------------------------------------#
 # Configuration file for DPP-PSD x740          #
@@ -18,17 +18,17 @@ OutputWaves742           0                     # 1 = Write all 742 waves on a bi
 # Connection setup                             # 
 #----------------------------------------------#
 
-ConnectionType           OPT                     # Connection link : USB / OPT
+ConnectionType           OPT                   # Connection link : USB / OPT
 ConnectionLinkNum        0                     # Connection Link number 
 ConnectionConetNode      0                     # Connection Node : Node Id in CONET daisy chain (0-7)
-ConnectionVmeBaseAddress 33330000                     # VME Base Address : needed only for VME access via USB/Optical Bridge
+ConnectionVmeBaseAddress 33330000              # VME Base Address : needed only for VME access via USB/Optical Bridge
 
 #----------------------------------------------#
 # Acquisition setup                            # 
 #----------------------------------------------#
 
 AcquisitionMode          LIST                  # Acquisition Mode: LIST or MIXED
-ChannelTriggerMask       FFFFFFFFFFFFFFFF              # Channel Trigger Mask 
+ChannelTriggerMask       FFFFFFFFFFFFFFFF      # Channel Trigger Mask 
 EnableExtendedTimeStamp  0                     # 1 = 48-bit Timestamp + 16-bit baseline
 ActiveChannel            0                     # Active channel for data analysis (default=0 if unset)
 EnablePlots740           1                     # Enables plotting of events for 740 board (default = 0, no plotting) - channel defined by ActiveChannel
@@ -57,6 +57,11 @@ DCoffset                 0 32768                   #
 DCoffset                 1 32768               #
 DCoffset                 2 32768               #
 DCoffset                 3 32768               #
+DCoffset                 4 32768                   #
+DCoffset                 5 32768               #
+DCoffset                 6 32768               #
+DCoffset                 7 32768               #
+
 
 #----------------------------------------------#
 # Waveform settings                            # 
@@ -89,7 +94,7 @@ GateWidth                0 200                 # gate width (in steps of 16 ns)
 GateWidth                1 200                 # gate width (in steps of 16 ns)
 GateWidth                2 200                 # gate width (in steps of 16 ns)
 GateWidth                3 200                 # gate width (in steps of 16 ns)
-GateWidth                4 200                 # gate width (in steps of 16 ns)
+GateWidth                4 150                 # gate width (in steps of 16 ns)
 GateWidth                5 200                 # gate width (in steps of 16 ns)
 GateWidth                6 200                 # gate width (in steps of 16 ns)
 GateWidth                7 200                 # gate width (in steps of 16 ns)
@@ -218,13 +223,36 @@ v1742_EnableLog         1     # Log Enabling (1 = yes, 0 = no)
 # V1742 CHANNEL PAIRING                        # 
 #----------------------------------------------#
 
-v1742_PairTimingChannels                0                     #  0 =  do not pair timing channels, 1 = pair timing ch 2 by 2 (each odd ch subtracted from each even ch) 
+# pairing of timing channels, setup
+# v1742_PairTimingChannels board group 0/1
+#  0 =  do not pair timing channels, 1 = pair timing ch 2 by 2 (each odd ch subtracted from each even ch) 
+
+v1742_PairTimingChannels     0        0        1
+v1742_PairTimingChannels     0        1        1
+v1742_PairTimingChannels     0        2        1
+v1742_PairTimingChannels     0        3        1
+v1742_PairTimingChannels     1        1        1
+v1742_PairTimingChannels     1        1        1
+v1742_PairTimingChannels     1        2        1
+v1742_PairTimingChannels     1        3        1
+
+
+# parameter for paired waves 
 v1742_Pair_WavePulsePolarity            1                     # polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
 v1742_Pair_BaselineStart                0                     # sample from which baseline computation starts
-v1742_Pair_BaselineSamples              200                   # number of samples used to compute baseline
-v1742_Pair_DeltaSquareStartPoint        40                    # distance in samples from calculated begin square pulse to begin of second baseline calculation 
-v1742_Pair_LengthSecondBaseline         30                    # number of samples used to compute second baseline
-v1742_Pair_RegressionSamplesHalfNum     2                     # number of samples used to compute linear regression of wave rise/fall
+v1742_Pair_BaselineSamples              100                   # number of samples used to compute baseline
+v1742_Pair_DeltaSquareStartPoint        60                    # distance in samples from calculated begin square pulse to begin of second baseline calculation 
+v1742_Pair_LengthSecondBaseline         100                    # number of samples used to compute second baseline
+v1742_Pair_RegressionSamplesHalfNum     4                     # number of samples used to compute linear regression of wave rise/fall
+
+
+# parameter for single waves 
+v1742_Single_WavePulsePolarity            1                     # polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+v1742_Single_BaselineStart                0                     # sample from which baseline computation starts
+v1742_Single_BaselineSamples              100                   # number of samples used to compute baseline
+v1742_Single_DeltaSquareStartPoint        30                    # distance in samples from calculated begin square pulse to begin of second baseline calculation 
+v1742_Single_LengthSecondBaseline         100                    # number of samples used to compute second baseline
+v1742_Single_RegressionSamplesHalfNum     2                     # number of samples used to compute linear regression of wave rise/fall
 
 
 #----------------------------------------------#
@@ -246,12 +274,13 @@ v1742_PostTrigger                0    0                     # Post trigger in pe
 v1742_RunDelay                   0    1                     # Sync run delay in units of trigger clock ( 1/(2*58,59375) for v1742 digitizers) 
 
 # PARAMETERS FOR TIMING COMPUTATION ON THE FLY
+# THESE PARAMETERS NOW REFER ONLY TO THE INTERPOLATION OF TRIGGER WAVES
 v1742_TRPulsePolarity            0    1                     # polarity of trigger pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
-v1742_WavePulsePolarity          0    0                     # polarity of channel pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+v1742_WavePulsePolarity          0    1                     # polarity of channel pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
 v1742_BaselineStart              0    0                     # sample from which baseline computation starts
-v1742_BaselineSamples            0    600                   # number of samples used to compute baseline
+v1742_BaselineSamples            0    100                   # number of samples used to compute baseline
 v1742_DeltaSquareStartPoint      0    90                    # distance in samples from calculated begin square pulse to begin of second baseline calculation 
-v1742_LengthSecondBaseline       0    50                    # number of samples used to compute second baseline
+v1742_LengthSecondBaseline       0    40                    # number of samples used to compute second baseline
 v1742_RegressionSamplesHalfNum   0    4                     # number of samples used to compute linear regression of wave rise/fall
 
 
@@ -288,11 +317,11 @@ v1742_RunDelay                   1    0                     # Sync run delay in 
 
 # PARAMETERS FOR TIMING COMPUTATION ON THE FLY
 v1742_TRPulsePolarity            1    1                     # polarity of trigger pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
-v1742_WavePulsePolarity          1    0                     # polarity of channel pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+v1742_WavePulsePolarity          1    1                     # polarity of channel pulses in this digitizer (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
 v1742_BaselineStart              1    0                     # sample from which baseline computation starts
-v1742_BaselineSamples            1    600                   # number of samples used to compute baseline
+v1742_BaselineSamples            1    200                   # number of samples used to compute baseline
 v1742_DeltaSquareStartPoint      1    90                    # distance in samples from calculated begin square pulse to begin of second baseline calculation 
-v1742_LengthSecondBaseline       1    50                    # number of samples used to compute second baseline
+v1742_LengthSecondBaseline       1    40                    # number of samples used to compute second baseline
 v1742_RegressionSamplesHalfNum   1    4                     # number of samples used to compute linear regression of wave rise/fall
 
 # Register direct write, format:
