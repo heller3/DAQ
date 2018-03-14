@@ -1857,7 +1857,11 @@ int setup_acquisition(char *fname) {
   uint32_t rom_board_id;
   
   clear_screen();
-  plotter = popen("gnuplot", "w");    // Open plotter pipe (gnuplot)
+  if(gParams.EnablePlots742)
+  {
+    plotter = popen("gnuplot", "w");    // Open plotter pipe (gnuplot)
+  }
+ 
   /* ---------------------------------------------------------------------------------------
    * * Set Parameters (default values or read from config file)
    ** ---------------------------------------------------------------------------------------
@@ -2119,15 +2123,19 @@ int setup_acquisition(char *fname) {
     }
     
     /* open gnuplot in a pipe and the data file*/
-    gHistPlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
-    if (gHistPlotFile==NULL) {
-      printf("Can't open gnuplot\n");
-      return -1; 
+    if(gParams.EnablePlots740)
+    {
+      gHistPlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
+      if (gHistPlotFile==NULL) {
+        printf("Can't open gnuplot\n");
+        return -1; 
+      }
+      if (gParams.AcqMode == ACQMODE_MIXED) {
+        gWavePlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
+        fprintf(gWavePlotFile, "set yrange [0:4096]\n");
+      }
     }
-    if (gParams.AcqMode == ACQMODE_MIXED) {
-      gWavePlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
-      fprintf(gWavePlotFile, "set yrange [0:4096]\n");
-    }
+    
     
   }
   
@@ -2334,7 +2342,7 @@ int check_user_input() {
         gParams.EnablePlots740 = 1;
         gParams.EnablePlots742 = 1;
         
-        gHistPlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
+        gHistPlotFile = popen("gnuplot", "w");  
         gWavePlotFile = popen("gnuplot", "w");
         plotter       = popen("gnuplot", "w");
       }

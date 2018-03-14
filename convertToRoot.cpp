@@ -145,31 +145,7 @@ int main(int argc,char **argv)
   int NumOfRootFile = 0;
 
 
-  //also in parallel perform a small analysis on TTT (makes sense basically only with external pulser, but could be useful also without
-  int Nbins = 50;
-  //histograms
-  TH1F *histo_deltaT_740_742_0 = new TH1F("histo_deltaT_740_742_0","histo_deltaT_740_742_0",Nbins,-50,50);
-  TH1F *histo_deltaT_740_742_1 = new TH1F("histo_deltaT_740_742_1","histo_deltaT_740_742_1",Nbins,-50,50);
-  std::vector<double> t , delta740_742_0,delta740_742_1,delta742_742;
-  //For CTR analysis, makes sense if
-  double boundary = 1000;
-  int nbinsCTR = 2000;
-  TH1F *histo_sameGroup = new TH1F("sameGroup","sameGroup",nbinsCTR,-boundary,boundary);
-  TH1F *histo_AltSameGroup = new TH1F("histo_AltSameGroup","histo_AltSameGroup",nbinsCTR,-boundary,boundary);
-  TH1F *histo_sameTR    = new TH1F("sameTR","sameTR",nbinsCTR,-boundary,boundary);
-  TH1F *histo_sameBoard = new TH1F("sameBoard","sameBoard",nbinsCTR,-boundary,boundary);
-  TH1F *histo_diffBoard = new TH1F("diffBoard","diffBoard",nbinsCTR,-boundary,boundary);
-
-  histo_sameGroup->GetXaxis()->SetTitle("Time [ps]");
-  histo_sameGroup->SetTitle("Time difference between channels on same group");
-  histo_AltSameGroup->GetXaxis()->SetTitle("Time [ps]");
-  histo_AltSameGroup->SetTitle("Time difference between channels on same group, ch0 as ref.");
-  histo_sameTR->GetXaxis()->SetTitle("Time [ps]");
-  histo_sameTR->SetTitle("Time difference between channels on same board and same TRn");
-  histo_sameBoard->GetXaxis()->SetTitle("Time [ps]");
-  histo_sameBoard->SetTitle("Time difference between channels on same board, but different TRn");
-  histo_diffBoard->GetXaxis()->SetTitle("Time [ps]");
-  histo_diffBoard->SetTitle("Time difference between channels on different 742 boards");
+  
 
   long long int file0N = filesize(file0) /  sizeof(ev);
   std::cout << "Events in file " << file0 << " = " << file0N << std::endl;
@@ -277,21 +253,7 @@ int main(int argc,char **argv)
       timestamp[i] = (Float_t) 200.0*1e-12*ev.PulseEdgeTime[i];  //converted to seconds
     }
     t1->Fill();
-    //also fill the histrograms and graphs
-    histo_deltaT_740_742_0->Fill( ev.TTT740 - ev.TTT742_0 );
-    histo_deltaT_740_742_1->Fill( ev.TTT740 - ev.TTT742_1 );
-    t.push_back(GlobalTTT);
-    delta740_742_0.push_back(ev.TTT740 - ev.TTT742_0);
-    delta740_742_1.push_back(ev.TTT740 - ev.TTT742_1);
-    delta742_742.push_back(ev.TTT742_0 - ev.TTT742_1);
-
-    // PulseEdgeTime are in bins of V1742, 1 bin is 200ps
-    histo_sameGroup->Fill(200.0 * (ev.PulseEdgeTime[0] - ev.PulseEdgeTime[2] )); // channels on same group
-    histo_AltSameGroup->Fill(200.0 * (ev.PulseEdgeTime[2] - ev.PulseEdgeTime[4]) ); //channels in same group but reference wave was the ch0
-    histo_sameTR   ->Fill(200.0 * (ev.PulseEdgeTime[0] - ev.PulseEdgeTime[8] ));  // channels on same tr (same half board)
-    histo_sameBoard->Fill(200.0 * (ev.PulseEdgeTime[0] - ev.PulseEdgeTime[16])); // channels on same board
-    histo_diffBoard->Fill(200.0 * (ev.PulseEdgeTime[0] - ev.PulseEdgeTime[32])); // channels on different boards
-//     std::cout << std::endl;
+    
     counter++;
     listNum++;
 //     if((counter % file0N) == 0)
@@ -308,10 +270,18 @@ int main(int argc,char **argv)
 
 
 
-
+  char cwd[1024];
+  getcwd(cwd, sizeof(cwd));
+  std::string PWDstring(cwd);
+//   printf("%s\n",cwd);
+  
+  std::size_t foundRun = PWDstring.find_last_of("/");
+  std::string dataString = PWDstring.substr(foundRun+5);
+//   printf("%s\n",dataString.c_str());
+  
   std::stringstream fileRootStreamFinal;
   std::string fileRootFinal;
-  fileRootStreamFinal << dirName << "/TTree_" << filePart << ".root";
+  fileRootStreamFinal << dirName << "/TTree_" << filePart << "_" << dataString << ".root";
   fileRootFinal = fileRootStreamFinal.str();
 //   std::cout << "Saving root file "<< fileRootFinal << "..." << std::endl;
   TFile* fTreeFinal = new TFile(fileRootFinal.c_str(),"recreate");
@@ -322,60 +292,7 @@ int main(int argc,char **argv)
   std::cout << "Events exported = " << counter << std::endl;
   fclose(fIn);
 
-  TFile *fOut = new TFile("offsets.root","RECREATE");
-  fOut->cd();
-  //graphs
-  TGraph* g_delta740_742_0 = new TGraph(t.size(),&t[0],&delta740_742_0[0]);
-  g_delta740_742_0->SetName("Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
-  g_delta740_742_0->SetTitle("Trigger Time Tag delta vs. time (V1740D - V1742_0) ");
-  g_delta740_742_0->GetXaxis()->SetTitle("Acquisition time [ns]");
-  g_delta740_742_0->GetYaxis()->SetTitle("delta [ns]");
-
-  TGraph* g_delta740_742_1 = new TGraph(t.size(),&t[0],&delta740_742_1[0]);
-  g_delta740_742_1->SetName("Trigger Time Tag delta vs. time (V1740D - V1742_1) ");
-  g_delta740_742_1->SetTitle("Trigger Time Tag delta vs. time (V1740D - V1742_1) ");
-  g_delta740_742_1->GetXaxis()->SetTitle("Acquisition time [ns]");
-  g_delta740_742_1->GetYaxis()->SetTitle("delta [ns]");
-
-  TGraph* g_delta742_742 = new TGraph(t.size(),&t[0],&delta742_742[0]);
-  g_delta742_742->SetName("Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
-  g_delta742_742->SetTitle("Trigger Time Tag delta vs. time (V1742_0 - V1742_1) ");
-  g_delta742_742->GetXaxis()->SetTitle("Acquisition time [ns]");
-  g_delta742_742->GetYaxis()->SetTitle("delta [ns]");
-
-  histo_deltaT_740_742_0->Write();
-  histo_deltaT_740_742_1->Write();
-  g_delta740_742_0->Write();
-  g_delta740_742_1->Write();
-  g_delta742_742->Write();
-
-  TF1 *gauss_sameGroup = new TF1("gauss_sameGroup","gaus",-boundary,boundary);
-  TF1 *gauss_AltSameGroup = new TF1("gauss_AltSameGroup","gaus",-boundary,boundary);
-  TF1 *gauss_sameTR    = new TF1("gauss_sameTR","gaus",-boundary,boundary);
-  TF1 *gauss_sameBoard = new TF1("gauss_sameBoard","gaus",-boundary,boundary);
-  TF1 *gauss_diffBoard = new TF1("gauss_diffBoard","gaus",-boundary,boundary);
-
-  histo_sameGroup->Fit("gauss_sameGroup","Q");
-  histo_AltSameGroup->Fit("gauss_AltSameGroup","Q");
-  histo_sameTR   ->Fit("gauss_sameTR"   ,"Q");
-  histo_sameBoard->Fit("gauss_sameBoard","Q");
-  histo_diffBoard->Fit("gauss_diffBoard","Q");
-
-  std::cout << std::endl;
-
-  std::cout << "CTR FWHM same group         = " <<  gauss_sameGroup   ->GetParameter(2) * 2.355 << "ps" << std::endl;
-  std::cout << "CTR FWHM alt. same group    = " <<  gauss_AltSameGroup->GetParameter(2) * 2.355 << "ps" << std::endl;
-  std::cout << "CTR FWHM same tr            = " <<  gauss_sameTR      ->GetParameter(2) * 2.355 << "ps" << std::endl;
-  std::cout << "CTR FWHM same board         = " <<  gauss_sameBoard   ->GetParameter(2) * 2.355 << "ps" << std::endl;
-  std::cout << "CTR FWHM different boards   = " <<  gauss_diffBoard   ->GetParameter(2) * 2.355 << "ps" << std::endl;
-
-  histo_sameGroup->Write();
-  histo_sameTR   ->Write();
-  histo_sameBoard->Write();
-  histo_diffBoard->Write();
-
-
-  fOut->Close();
+  
 //   TFile* fTree = new TFile("testTree.root","recreate");
 //   fTree->cd();
 //   t1->Write();

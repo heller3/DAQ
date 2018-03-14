@@ -235,11 +235,23 @@ int main(int argc,char **argv)
     listNum++;
     counter++;
   }
-
+  
+  
+  
+  char cwd[1024];
+  getcwd(cwd, sizeof(cwd));
+  std::string PWDstring(cwd);
+//   printf("%s\n",cwd);
+  
+  std::size_t foundRun = PWDstring.find_last_of("/");
+  std::string dataString = PWDstring.substr(foundRun+5);
+//   printf("%s\n",dataString.c_str());
+  
 //   std::cout << "Events in file " << file0 << " = " << counter << std::endl;
   std::stringstream fileRootStreamFinal;
   std::string fileRootFinal;
-  fileRootStreamFinal << dirName << "/TTree_" << filePart << ".root";
+  fileRootStreamFinal << dirName << "/TTree_" << filePart << "_" << dataString << ".root";
+//   fileRootStreamFinal << dirName << "/TTree_" << filePart << ".root";
   fileRootFinal = fileRootStreamFinal.str();
 //   std::cout << "Saving root file "<< fileRootFinal << "..." << std::endl;
   TFile* fTreeFinal = new TFile(fileRootFinal.c_str(),"recreate");
