@@ -41,9 +41,6 @@ BoardParameters   gParams;
 Stats        gAcqStats  ;
 
 FILE *       gPlotDataFile;
-// FILE *       gListFiles[MAX_CHANNELS];
-// FILE *       timeTags;
-// FILE *       tttFile;
 FILE *       sStamps740;
 FILE **      sStamps742;
 
@@ -66,8 +63,8 @@ int          gAnalogTrace = 0;
 int          gRestart     = 0;
 int          gAcquisitionBufferAllocated = 0;
 
-char *       gAcqBuffer      = NULL;
-char *       gEventPtr      = NULL;
+char *       gAcqBuffer          = NULL;
+char *       gEventPtr           = NULL;
 FILE *       gHistPlotFile       = NULL;
 FILE *       gWavePlotFile       = NULL;
 
@@ -1759,7 +1756,7 @@ int cleanup_on_exit() {
   
   if (gHistPlotFile != NULL)  pclose(gHistPlotFile); 
   if (gWavePlotFile != NULL)  pclose(gWavePlotFile); 
-  
+  if (plotter       != NULL)  pclose(plotter); 
   if(gWaveforms) free(gWaveforms);
   
 //   for(i=0; i<MAX_CHANNELS; ++i) {
@@ -1797,6 +1794,7 @@ int cleanup_on_exit() {
     ret = CAEN_DGTZ_CloseDigitizer(tHandle[i]);
   }
   
+  printf("\nData files written in folder %s\n\n",dirName);
 //   fclose(tttFile);
   
 //   for(i=0; i<gParams.NumOfV1742; i++) {  
@@ -1876,7 +1874,7 @@ int setup_acquisition(char *fname) {
   char stamps742FileName[100],b742FileName[100],b740FileName[100],stamps740FileName[100];
   
   unsigned int j;
-  char dirName[100];
+  
   char MakeFolder[100];
   char copyConfig[100];
   // get time of day and create the listmode file name
@@ -2315,6 +2313,34 @@ int check_user_input() {
       printf("Group = ");
       scanf("%d", &grp4stats);
     }
+    if (c=='p') {
+      if(gParams.EnablePlots740 || gParams.EnablePlots742 )
+      {
+        printf("Disabling all plots...");
+        gParams.EnablePlots740 = 0;
+        gParams.EnablePlots742 = 0;
+        
+        if (gHistPlotFile != NULL)  pclose(gHistPlotFile); 
+        if (gWavePlotFile != NULL)  pclose(gWavePlotFile); 
+        if (plotter       != NULL)  pclose(plotter); 
+        
+        gHistPlotFile = NULL;
+        gWavePlotFile = NULL;
+        plotter       = NULL;
+      }
+      else
+      {
+        printf("Enabling all plots...");
+        gParams.EnablePlots740 = 1;
+        gParams.EnablePlots742 = 1;
+        
+        gHistPlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
+        gWavePlotFile = popen("gnuplot", "w");
+        plotter       = popen("gnuplot", "w");
+      }
+    }
+    
+    
   } /*  if (kbhit()) */
   
   return 0;

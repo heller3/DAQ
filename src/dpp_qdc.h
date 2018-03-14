@@ -176,6 +176,8 @@ typedef struct
   uint32_t RegisterWriteAddr[64];                           // no more than 64 register writes, sorry...
   uint32_t RegisterWriteValue[64];                           // no more than 64 register writes, sorry...
   
+  
+  
 } BoardParameters;
 
 /* Data structures */
@@ -213,7 +215,8 @@ typedef struct
 /* Globals */
 // extern int	        gHandle;                                   /* CAEN library handle */
 int	gHandle; /* CAEN library handle */
-int      tHandle[8]; /* CAEN library handle */
+int     tHandle[8]; /* CAEN library handle */
+char    dirName[100];
 
 /* Variable declarations */                                    
 extern unsigned int gActiveChannel;                            /* Active channel for data analysis */
