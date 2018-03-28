@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <stdint.h>
 
+
 //ROOT includes
 #include "TROOT.h"
 #include "TTree.h"
@@ -68,6 +69,19 @@ void TimeOfDay(char *actual_time)
 //   return time_ms;
 // }
 
+
+void usage()
+{
+  std::cout << "\t\t" << "[ -o <output file name> ] " << std::endl
+            << "\t\t" << "[ --input0 <input file from V1740D digitizer> ] " << std::endl
+            << "\t\t" << "[ --input1 <input file from V1740D digitizer> ] " << std::endl
+            << "\t\t" << "[ --input2 <input file from V1740D digitizer> ] " << std::endl
+            << "\t\t" << "[ --delta0 <clock distance between V1740D and first V1742 in nanosec> ] " << std::endl
+            << "\t\t" << "[ --delta1 <clock distance between V1740D and first V1742 in nanosec> ] " << std::endl
+            << "\t\t" << "[ --coincidence <coincidence window to accept an event in nanosec - default 1000> ] " << std::endl
+            << "\t\t" << std::endl;
+}
+
 struct EventFormat_t
 {
   double TTT740;                         /*Trigger time tag of the event according to 740*/
@@ -90,11 +104,71 @@ std::ifstream::pos_type filesize(const char* filename)
 //----------------//
 int main(int argc,char **argv)
 {
-
+  if(argc < 2) // check input from command line
+  {
+    std::cout   << "Usage: " << argv[0] << std::endl;
+    usage();
+    return 1;
+  }
+  
+  
+  
+  static struct option longOptions[] =
+  {
+    { "input", required_argument, 0, 0 },
+    { "output-folder", required_argument, 0, 0 },
+    { "frame", required_argument, 0, 0 },
+    { NULL, 0, 0, 0 }
+  };
+  
   char* file0;
-  file0 = argv[1];
+//   file0 = argv[1];
   FILE * fIn = NULL;
-
+  bool inputGiven = false;  
+  char* outfolder;
+  outfolder = "./";
+  int   frame = -1 ;
+  
+  while(1) {
+    int optionIndex = 0;
+    int c = getopt_long(argc, argv, "i:o:f:", longOptions, &optionIndex);
+    if (c == -1) {
+      break;
+    }
+    if (c == 'i'){
+      file0     = (char *)optarg;
+      inputGiven = true;
+    }
+    if (c == 'o'){
+      outfolder = (char *)optarg;
+    }
+    if (c == 'f'){
+      frame = atoi((char *)optarg);
+    }
+    else if (c == 0 && optionIndex == 0){
+      file0     = (char *)optarg;
+      inputGiven = true;
+    }
+    else if (c == 0 && optionIndex == 1){
+      outfolder = (char *)optarg;
+    }
+    else if (c == 0 && optionIndex == 2){
+      frame = atoi((char *)optarg);
+    }
+    else {
+      std::cout << "Usage: " << argv[0] << std::endl;
+      usage();
+      return 1;
+    }
+  }
+  
+  if( !inputGiven  )
+  {
+    std::cout   << "Usage: " << argv[0] << std::endl;
+    usage();
+    return 1;
+  }
+  
   fIn = fopen(file0, "rb");
 
   if (fIn == NULL) {
@@ -114,12 +188,27 @@ int main(int argc,char **argv)
   //----------------------------------------//
   // Create Root TTree Folder and variables //
   //----------------------------------------//
+  
+//   char cwd[1024];
+//   getcwd(cwd, sizeof(cwd));
+  std::string PWDstring(outfolder);
+//   printf("%s\n",cwd);
+  
+//   std::size_t foundRun = PWDstring.find_last_of("/");
+  
+  std::string dataString = "S";
+  if(frame != -1)
+  {
+    std::stringstream sstream;
+    sstream << frame;
+    dataString = sstream.str(); 
+  }
 
   //first, create a new directory
-  std::string dirName = "./RootTTrees";
+  std::string dirName = PWDstring + "/RootTTrees";
 //   dirName += actual_time;
   std::string MakeFolder;
-  MakeFolder = "mkdir " + dirName;
+  MakeFolder = "mkdir -p " + dirName;
   system(MakeFolder.c_str());
 
   //declare ROOT ouput TTree and file
@@ -143,9 +232,9 @@ int main(int argc,char **argv)
   long long int runNumber = 0;
   long long int listNum = 0;
   int NumOfRootFile = 0;
-
-
   
+  
+//   printf("%s\n",dataString.c_str());  
 
   long long int file0N = filesize(file0) /  sizeof(ev);
   std::cout << "Events in file " << file0 << " = " << file0N << std::endl;
@@ -189,7 +278,7 @@ int main(int argc,char **argv)
       //file name
       std::stringstream fileRootStream;
       std::string fileRoot;
-      fileRootStream << dirName << "/TTree_" << filePart << ".root";
+      fileRootStream << dirName << "/TTree_" << dataString << "_" << filePart << ".root";
       fileRoot = fileRootStream.str();
 //       std::cout << "Saving root file "<< fileRoot << "..." << std::endl;
       TFile* fTree = new TFile(fileRoot.c_str(),"recreate");
@@ -270,18 +359,18 @@ int main(int argc,char **argv)
 
 
 
-  char cwd[1024];
-  getcwd(cwd, sizeof(cwd));
-  std::string PWDstring(cwd);
+//   char cwd[1024];
+//   getcwd(cwd, sizeof(cwd));
+//   std::string PWDstring(cwd);
 //   printf("%s\n",cwd);
   
-  std::size_t foundRun = PWDstring.find_last_of("/");
-  std::string dataString = PWDstring.substr(foundRun+5);
+//   std::size_t foundRun = PWDstring.find_last_of("/");
+//   std::string dataString = PWDstring.substr(foundRun+5);
 //   printf("%s\n",dataString.c_str());
   
   std::stringstream fileRootStreamFinal;
   std::string fileRootFinal;
-  fileRootStreamFinal << dirName << "/TTree_" << filePart << "_" << dataString << ".root";
+  fileRootStreamFinal << dirName << "/TTree_" << dataString << "_" << filePart << ".root";
   fileRootFinal = fileRootStreamFinal.str();
 //   std::cout << "Saving root file "<< fileRootFinal << "..." << std::endl;
   TFile* fTreeFinal = new TFile(fileRootFinal.c_str(),"recreate");
@@ -289,7 +378,7 @@ int main(int argc,char **argv)
   t1->Write();
   fTreeFinal->Close();
 
-  std::cout << "Events exported = " << counter << std::endl;
+  std::cout << "Events exported in " << dirName << " = " << counter << std::endl;
   fclose(fIn);
 
   

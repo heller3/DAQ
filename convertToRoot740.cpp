@@ -110,6 +110,16 @@ int main(int argc,char **argv)
 //     types = stypes.str();
 //     t1->Branch(names.c_str(),&timestamp[i],types.c_str());
 //   }
+  
+  char cwd[1024];
+  getcwd(cwd, sizeof(cwd));
+  std::string PWDstring(cwd);
+//   printf("%s\n",cwd);
+  
+  std::size_t foundRun = PWDstring.find_last_of("/");
+  std::string dataString = PWDstring.substr(foundRun+1);
+//   printf("%s\n",dataString.c_str());
+  
   long long int counter = 0;
   int filePart = 0;
   // EventFormat_t ev;
@@ -160,7 +170,7 @@ int main(int argc,char **argv)
       //file name
       std::stringstream fileRootStream;
       std::string fileRoot;
-      fileRootStream << dirName << "/TTree_" << filePart << ".root";
+      fileRootStream << dirName << "/TTree_" << dataString << "_" << filePart << ".root";
       fileRoot = fileRootStream.str();
 //       std::cout << "Saving root file "<< fileRoot << "..." << std::endl;
       TFile* fTree = new TFile(fileRoot.c_str(),"recreate");
@@ -238,20 +248,13 @@ int main(int argc,char **argv)
   
   
   
-  char cwd[1024];
-  getcwd(cwd, sizeof(cwd));
-  std::string PWDstring(cwd);
-//   printf("%s\n",cwd);
-  
-  std::size_t foundRun = PWDstring.find_last_of("/");
-  std::string dataString = PWDstring.substr(foundRun+5);
-//   printf("%s\n",dataString.c_str());
+
   
 //   std::cout << "Events in file " << file0 << " = " << counter << std::endl;
   std::stringstream fileRootStreamFinal;
   std::string fileRootFinal;
-  fileRootStreamFinal << dirName << "/TTree_" << filePart << "_" << dataString << ".root";
-//   fileRootStreamFinal << dirName << "/TTree_" << filePart << ".root";
+//   fileRootStreamFinal << dirName << "/TTree_" << filePart << "_" << dataString << ".root";
+  fileRootStreamFinal << dirName << "/TTree_" << dataString << "_" << filePart << ".root";
   fileRootFinal = fileRootStreamFinal.str();
 //   std::cout << "Saving root file "<< fileRootFinal << "..." << std::endl;
   TFile* fTreeFinal = new TFile(fileRootFinal.c_str(),"recreate");
