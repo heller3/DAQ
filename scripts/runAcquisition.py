@@ -9,6 +9,10 @@ import sys
 import argparse
 import subprocess
 from subprocess import Popen, PIPE, STDOUT
+import shutil
+
+
+
 
 def main(argv):
 
@@ -25,6 +29,15 @@ def main(argv):
    print ("Folder name      = %s" % args.folder )
    
    counter = 0
+   
+   #make RootTTrees folder 
+   finalFolder = "Run_" + args.folder + "/RootTTrees"
+   os.makedirs(finalFolder)
+   
+   #copy config file into main acq folder
+   copyConfiFile = "Run_" + args.folder + "/" + args.config
+   shutil.copyfile(args.config, copyConfiFile)  
+   
 
    run = 1
    folder = args.folder + "/" + str(counter)
@@ -49,12 +62,13 @@ def main(argv):
      f.write("--input2 Run_%s/binary742_1.dat " %folder)
      f.write(" && convertToRoot ")
      f.write("--input %s "   %eventsFile)
-     f.write("--output-folder Run_%s " %folder)
+     f.write("--output-folder Run_%s " %args.folder)
      f.write("--frame %d " %counter)
      f.write(" && rm Run_%s/binary740.dat " %folder )
      f.write(" && rm Run_%s/binary742_0.dat " %folder )
      f.write(" && rm Run_%s/binary742_1.dat " %folder )
      f.write(" && rm %s " %eventsFile )
+     f.write(" && rm -r Run_%s " %folder )
      f.close()
      #and make it executable
      st = os.stat(fName)
@@ -86,21 +100,27 @@ def main(argv):
    f.write("--input2 Run_%s/binary742_1.dat " %folder)
    f.write(" && convertToRoot ")
    f.write("--input %s "   %eventsFile)
-   f.write("--output-folder Run_%s " %folder)
+   f.write("--output-folder Run_%s " %args.folder)
    f.write("--frame %d " %counter)
    f.write(" && rm Run_%s/binary740.dat " %folder )
    f.write(" && rm Run_%s/binary742_0.dat " %folder )
    f.write(" && rm Run_%s/binary742_1.dat " %folder )
    f.write(" && rm %s " %eventsFile )
+   f.write(" && rm -r Run_%s " %folder )
    f.close()
    #and make it executable
    st = os.stat(fName)
    os.chmod(fName, st.st_mode | stat.S_IEXEC)
    
    convertCmd = ['./' + fName]
+   print("Converting latest frame...!\n")
    convertCode = subprocess.Popen(convertCmd,shell=True).wait()
+   os.remove(fName)
    
-   print("done!\n")
+   #move files in the same folder
+   print("Moving files...!\n")
+   #
+   print("Done!\n")
 
 
 if __name__ == "__main__":
