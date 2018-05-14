@@ -137,21 +137,21 @@ typedef struct
   uint32_t v1742_EnableLog;
   uint32_t v1742_pairTimingChannels[8][4];
   
-  uint32_t v1742_Pair_WavePulsePolarity        ;  // polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+  uint32_t v1742_Pair_WavePulsePolarity[8][4][8]        ;  // polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
   uint32_t v1742_Pair_BaselineStart            ;  // sample from which baseline computation starts
   uint32_t v1742_Pair_BaselineSamples          ;  // number of samples used to compute baseline
   uint32_t v1742_Pair_DeltaSquareStartPoint    ;  // distance in samples from calculated begin square pulse to begin of second baseline calculation 
   uint32_t v1742_Pair_LengthSecondBaseline     ;  // number of samples used to compute second baseline
   uint32_t v1742_Pair_RegressionSamplesHalfNum ;  // number of samples used to compute linear regression of wave rise/fall
-  uint32_t v1742_Pair_FixedThreshold ; 
+  uint32_t v1742_Pair_FixedThreshold[8][4][8] ; 
   
-  uint32_t v1742_Single_WavePulsePolarity        ;  // polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+  uint32_t v1742_Single_WavePulsePolarity[8][4][8]        ;  // polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
   uint32_t v1742_Single_BaselineStart            ;  // sample from which baseline computation starts
   uint32_t v1742_Single_BaselineSamples          ;  // number of samples used to compute baseline
   uint32_t v1742_Single_DeltaSquareStartPoint    ;  // distance in samples from calculated begin square pulse to begin of second baseline calculation 
   uint32_t v1742_Single_LengthSecondBaseline     ;  // number of samples used to compute second baseline
   uint32_t v1742_Single_RegressionSamplesHalfNum ;  // number of samples used to compute linear regression of wave rise/fall
-  uint32_t v1742_Single_FixedThreshold ; 
+  uint32_t v1742_Single_FixedThreshold[8][4][8] ; 
   
   uint32_t v1742_ConnectionType[8];
   uint32_t v1742_LinkNum[8];
@@ -292,7 +292,7 @@ long get_time();
 void clear_screen( void );
 // double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType);
 // double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType,int baseLineSamples);
-double interpolateWithMultiplePoints(float* data, unsigned int length, CAEN_DGTZ_PulsePolarity_t edge, int Tstart,int baseLineSamples, int deltaSquareStartPoint, int lengthSecondBaseline, int samplesNum, int fixedThreshold);
+double interpolateWithMultiplePoints(float* data, unsigned int length, CAEN_DGTZ_PulsePolarity_t edge, int Tstart,int baseLineSamples, int deltaSquareStartPoint, int lengthSecondBaseline, int samplesNum, int fixedThreshold, float* res, double timeBase,double cutoffBaseline);
 
 #ifdef LINUX
 #include <sys/time.h> /* struct timeval, select() */
