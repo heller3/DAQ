@@ -74,7 +74,7 @@ void read_directory(const std::string& name, std::vector<std::string> &v)
 
 void usage()
 {
-  std::cout << "\t\t" << "[-i|--input] <file_prefix>  [-o|--output] <output.root> [-t|--text] text.txt [OPTIONS]" << std::endl
+  std::cout << "\t\t" << "[-i|--input] <file_prefix>  [-o|--output] <plots.root> [-t|--text] text.txt [OPTIONS]" << std::endl
             << "\t\t" << "<file_prefix>                                      - prefix of TTree files to analyze                                  - default = TTree_"   << std::endl
             << "\t\t" << "<plots.root>                                       - output file name                                                  - default = plots.root"   << std::endl
             << "\t\t" << "<text.txt>                                         - trxt file name (where ctr result will be stored)                  - default = plots.root"   << std::endl
