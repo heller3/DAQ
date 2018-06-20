@@ -314,11 +314,19 @@ int main(int argc, char** argv)
   TF1 *gaussCTR = new TF1("gaussCTR","gaus");
   ctr->Fit(gaussCTR,"Q");
 
-  std::cout << "CTR FWHM = "<< gaussCTR->GetParameter(2)*2.355*1e12 << " ps" << std::endl;
+  Double_t chi2 = gaussCTR->GetChisquare();
+  Int_t NDF = gaussCTR->GetNDF();
+  Double_t chi2red = chi2 / NDF;
+
+  std::cout << "CTR FWHM [ps]    CTR error [ps]     Chi^2/NDF " << std::endl;
+  std::cout << gaussCTR->GetParameter(2)*2.355*1e12 << " " << gaussCTR->GetParError(2)*2.355*1e12 << " "  << chi2red << std::endl;
+
+
 
   std::ofstream textfile;
   textfile.open (textFileName.c_str(),std::ofstream::out);
-  textfile << gaussCTR->GetParameter(2)*2.355*1e12 << std::endl;
+  textfile << "#CTR FWHM [ps]    CTR error [ps]     Chi^2/NDF " << std::endl;
+  textfile << gaussCTR->GetParameter(2)*2.355*1e12 << " " << gaussCTR->GetParError(2)*2.355*1e12 << " "  << chi2red << std::endl;
   textfile.close();
 
   TFile *outputFile = new TFile(outputFileName.c_str(),"RECREATE");
