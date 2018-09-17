@@ -64,7 +64,7 @@ def main(argv):
      f.write("--input %s "   %eventsFile)
      f.write("--output-folder Run_%s " %args.folder)
      f.write("--frame %d " %counter)
-     f.write("--time %d " %args.time)
+     f.write("--time %s " %args.time)
      f.write(" && rm Run_%s/binary740.dat " %folder )
      f.write(" && rm Run_%s/binary742_0.dat " %folder )
      f.write(" && rm Run_%s/binary742_1.dat " %folder )
