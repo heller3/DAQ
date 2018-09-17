@@ -72,13 +72,10 @@ void TimeOfDay(char *actual_time)
 
 void usage()
 {
-  std::cout << "\t\t" << "[ -o <output file name> ] " << std::endl
-            << "\t\t" << "[ --input0 <input file from V1740D digitizer> ] " << std::endl
-            << "\t\t" << "[ --input1 <input file from V1740D digitizer> ] " << std::endl
-            << "\t\t" << "[ --input2 <input file from V1740D digitizer> ] " << std::endl
-            << "\t\t" << "[ --delta0 <clock distance between V1740D and first V1742 in nanosec> ] " << std::endl
-            << "\t\t" << "[ --delta1 <clock distance between V1740D and first V1742 in nanosec> ] " << std::endl
-            << "\t\t" << "[ --coincidence <coincidence window to accept an event in nanosec - default 1000> ] " << std::endl
+  std::cout << "\t\t" << "[ --input           <input file name> ] " << std::endl
+            << "\t\t" << "[ --output-folder   <name of output folder> ] " << std::endl
+            << "\t\t" << "[ --frame           <frame number> ] " << std::endl
+            << "\t\t" << "[ --time            <time of one slice in seconds> ] " << std::endl
             << "\t\t" << std::endl;
 }
 
@@ -110,28 +107,30 @@ int main(int argc,char **argv)
     usage();
     return 1;
   }
-  
-  
-  
+
+
+
   static struct option longOptions[] =
   {
     { "input", required_argument, 0, 0 },
     { "output-folder", required_argument, 0, 0 },
     { "frame", required_argument, 0, 0 },
+    { "time", required_argument, 0, 0 },
     { NULL, 0, 0, 0 }
   };
-  
+
   char* file0;
 //   file0 = argv[1];
   FILE * fIn = NULL;
-  bool inputGiven = false;  
+  bool inputGiven = false;
   char* outfolder;
   outfolder = "./";
   int   frame = -1 ;
-  
+  float time_of_slice = 0; // time of a slice in seconds
+
   while(1) {
     int optionIndex = 0;
-    int c = getopt_long(argc, argv, "i:o:f:", longOptions, &optionIndex);
+    int c = getopt_long(argc, argv, "i:o:f:t:", longOptions, &optionIndex);
     if (c == -1) {
       break;
     }
@@ -145,6 +144,9 @@ int main(int argc,char **argv)
     if (c == 'f'){
       frame = atoi((char *)optarg);
     }
+    if (c == 't'){
+      time_of_slice = atof((char *)optarg);
+    }
     else if (c == 0 && optionIndex == 0){
       file0     = (char *)optarg;
       inputGiven = true;
@@ -155,26 +157,32 @@ int main(int argc,char **argv)
     else if (c == 0 && optionIndex == 2){
       frame = atoi((char *)optarg);
     }
+    else if (c == 0 && optionIndex == 3){
+      time_of_slice = atof((char *)optarg);
+    }
     else {
       std::cout << "Usage: " << argv[0] << std::endl;
       usage();
       return 1;
     }
   }
-  
+
   if( !inputGiven  )
   {
     std::cout   << "Usage: " << argv[0] << std::endl;
     usage();
     return 1;
   }
-  
+
   fIn = fopen(file0, "rb");
 
   if (fIn == NULL) {
     fprintf(stderr, "File %s does not exist\n", file0);
     return 1;
   }
+
+  // put the time_of_slice in ns
+  time_of_slice = time_of_slice * 1e9;
 
   // get time of day and create the listmode file name
 //   char actual_time[20];
@@ -188,20 +196,24 @@ int main(int argc,char **argv)
   //----------------------------------------//
   // Create Root TTree Folder and variables //
   //----------------------------------------//
-  
+
 //   char cwd[1024];
 //   getcwd(cwd, sizeof(cwd));
   std::string PWDstring(outfolder);
 //   printf("%s\n",cwd);
-  
+
 //   std::size_t foundRun = PWDstring.find_last_of("/");
-  
+
   std::string dataString = "S";
   if(frame != -1)
   {
     std::stringstream sstream;
     sstream << frame;
-    dataString = sstream.str(); 
+    dataString = sstream.str();
+  }
+  else //now the horror: use frame to move the ExtendedTimeTags, so don't move it if frame == -1, but this means put frame to 0 now
+  {
+    frame = 0;
   }
 
   //first, create a new directory
@@ -232,9 +244,9 @@ int main(int argc,char **argv)
   long long int runNumber = 0;
   long long int listNum = 0;
   int NumOfRootFile = 0;
-  
-  
-//   printf("%s\n",dataString.c_str());  
+
+
+//   printf("%s\n",dataString.c_str());
 
   long long int file0N = filesize(file0) /  sizeof(ev);
   std::cout << "Events in file " << file0 << " = " << file0N << std::endl;
@@ -329,7 +341,9 @@ int main(int argc,char **argv)
     if(counter == 0)
       startTimeTag = (ULong64_t) GlobalTTT;
 
-    ExtendedTimeTag = (ULong64_t) GlobalTTT;
+    // ExtendedTimeTag is moved by frame * time_of_slice
+
+    ExtendedTimeTag = (ULong64_t) GlobalTTT + (frame * time_of_slice) ;
     DeltaTimeTag    = (ULong64_t) GlobalTTT - startTimeTag;
     for(int i = 0 ; i < 64 ; i ++)
     {
@@ -342,7 +356,7 @@ int main(int argc,char **argv)
       timestamp[i] = (Float_t) 200.0*1e-12*ev.PulseEdgeTime[i];  //converted to seconds
     }
     t1->Fill();
-    
+
     counter++;
     listNum++;
 //     if((counter % file0N) == 0)
@@ -363,11 +377,11 @@ int main(int argc,char **argv)
 //   getcwd(cwd, sizeof(cwd));
 //   std::string PWDstring(cwd);
 //   printf("%s\n",cwd);
-  
+
 //   std::size_t foundRun = PWDstring.find_last_of("/");
 //   std::string dataString = PWDstring.substr(foundRun+5);
 //   printf("%s\n",dataString.c_str());
-  
+
   std::stringstream fileRootStreamFinal;
   std::string fileRootFinal;
   fileRootStreamFinal << dirName << "/TTree_" << dataString << "_" << filePart << ".root";
@@ -381,7 +395,7 @@ int main(int argc,char **argv)
   std::cout << "Events exported in " << dirName << " = " << counter << std::endl;
   fclose(fIn);
 
-  
+
 //   TFile* fTree = new TFile("testTree.root","recreate");
 //   fTree->cd();
 //   t1->Write();

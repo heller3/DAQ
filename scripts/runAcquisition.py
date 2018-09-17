@@ -27,17 +27,17 @@ def main(argv):
    print ("Config file      = %s" % args.config )
    print ("Time per acq [s] = %s" % args.time )
    print ("Folder name      = %s" % args.folder )
-   
+
    counter = 0
-   
-   #make RootTTrees folder 
+
+   #make RootTTrees folder
    finalFolder = "Run_" + args.folder + "/RootTTrees"
    os.makedirs(finalFolder)
-   
+
    #copy config file into main acq folder
    copyConfiFile = "Run_" + args.folder + "/" + args.config
-   shutil.copyfile(args.config, copyConfiFile)  
-   
+   shutil.copyfile(args.config, copyConfiFile)
+
 
    run = 1
    folder = args.folder + "/" + str(counter)
@@ -46,14 +46,14 @@ def main(argv):
      #print(child.returncode)
    if returncode == 255:
      run = 0
-   
+
    fName = "convert.sh"
-   
+
    while run == 1 :
      #convert old data
      eventsFile = 'Run_' + folder + '/events.dat'
      #create script
-     
+
      f = open(fName,'w')
      f.write("#!/bin/bash\n")
      f.write("events -o %s " %eventsFile)
@@ -64,6 +64,7 @@ def main(argv):
      f.write("--input %s "   %eventsFile)
      f.write("--output-folder Run_%s " %args.folder)
      f.write("--frame %d " %counter)
+     f.write("--time %d " %args.time)
      f.write(" && rm Run_%s/binary740.dat " %folder )
      f.write(" && rm Run_%s/binary742_0.dat " %folder )
      f.write(" && rm Run_%s/binary742_1.dat " %folder )
@@ -73,21 +74,21 @@ def main(argv):
      #and make it executable
      st = os.stat(fName)
      os.chmod(fName, st.st_mode | stat.S_IEXEC)
-     
+
      convertCmd = ['./' + fName]
      convertCode = subprocess.Popen(convertCmd,shell=True).poll()
      print(convertCode)
-     
+
      #start the next acq
      counter = counter + 1
-     folder = args.folder + "/" + str(counter) 
+     folder = args.folder + "/" + str(counter)
      cmd = ['readout','-c', args.config,'-t', args.time, '-f', folder,'--start']
      returncode = subprocess.Popen(cmd).wait()
-     
+
      #print(child.returncode)
      if returncode == 255:
        run = 0
-   
+
    #convert last data
    #convert old data
    eventsFile = 'Run_' + folder + '/events.dat'
@@ -111,12 +112,12 @@ def main(argv):
    #and make it executable
    st = os.stat(fName)
    os.chmod(fName, st.st_mode | stat.S_IEXEC)
-   
+
    convertCmd = ['./' + fName]
    print("Converting latest frame...!\n")
    convertCode = subprocess.Popen(convertCmd,shell=True).wait()
    os.remove(fName)
-   
+
    #move files in the same folder
    print("Moving files...!\n")
    #
@@ -125,4 +126,3 @@ def main(argv):
 
 if __name__ == "__main__":
    main(sys.argv[1:])
-
