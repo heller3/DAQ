@@ -75,7 +75,7 @@ void usage()
   std::cout << "\t\t" << "[ --input           <input file name> ] " << std::endl
             << "\t\t" << "[ --output-folder   <name of output folder> ] " << std::endl
             << "\t\t" << "[ --frame           <frame number> ] " << std::endl
-            << "\t\t" << "[ --time            <time of one slice in seconds> ] " << std::endl
+            << "\t\t" << "[ --time            <time of start in milliseconds since EPOCH> ] " << std::endl
             << "\t\t" << std::endl;
 }
 
@@ -126,7 +126,7 @@ int main(int argc,char **argv)
   char* outfolder;
   outfolder = "./";
   int   frame = -1 ;
-  float time_of_slice = 0; // time of a slice in seconds
+  double time_of_start = 0; // time of start
 
   while(1) {
     int optionIndex = 0;
@@ -145,7 +145,7 @@ int main(int argc,char **argv)
       frame = atoi((char *)optarg);
     }
     if (c == 't'){
-      time_of_slice = atof((char *)optarg);
+      time_of_start = atof((char *)optarg);
     }
     else if (c == 0 && optionIndex == 0){
       file0     = (char *)optarg;
@@ -158,7 +158,7 @@ int main(int argc,char **argv)
       frame = atoi((char *)optarg);
     }
     else if (c == 0 && optionIndex == 3){
-      time_of_slice = atof((char *)optarg);
+      time_of_start = atof((char *)optarg);
     }
     else {
       std::cout << "Usage: " << argv[0] << std::endl;
@@ -181,8 +181,12 @@ int main(int argc,char **argv)
     return 1;
   }
 
-  // put the time_of_slice in ns
-  time_of_slice = time_of_slice * 1e9;
+  // put the time_of_start in ns since EPOCH (input is in ms)
+  time_of_start = time_of_start * 1e6;
+  // then subtract 47.77 years, more or less, to the time stamp will be 1-1-1970 + 47.77y 
+  // this is done to avoid too big int numbers, it doesn't really matter the absolute time
+  // like this it should overflow in 570 years more or less...
+  time_of_start = time_of_start - 1500000000000000000;
 
   // get time of day and create the listmode file name
 //   char actual_time[20];
@@ -341,9 +345,9 @@ int main(int argc,char **argv)
     if(counter == 0)
       startTimeTag = (ULong64_t) GlobalTTT;
 
-    // ExtendedTimeTag is moved by frame * time_of_slice
+    // ExtendedTimeTag is moved adding time_of_start
 
-    ExtendedTimeTag = (ULong64_t) GlobalTTT + (frame * time_of_slice) ;
+    ExtendedTimeTag = (ULong64_t) (GlobalTTT + ((ULong64_t) time_of_start)) ;
     DeltaTimeTag    = (ULong64_t) GlobalTTT - startTimeTag;
     for(int i = 0 ; i < 64 ; i ++)
     {

@@ -19,6 +19,26 @@
 //   //   printf("acquisition_runtime must be an integer > 0 and < %d\n", LONG_MAX);
 // }
 
+/* Get time in milliseconds from the computer internal clock */
+
+// long         gCurrTime;
+// 
+// long get_time()
+// {
+//   long time_ms;
+//   #ifdef WIN32
+//   struct _timeb timebuffer;
+//   _ftime( &timebuffer );
+//   time_ms = (long)timebuffer.time * 1000 + (long)timebuffer.millitm;
+//   #else
+//   struct timeval t1;
+//   struct timezone tz;
+//   gettimeofday(&t1, &tz);
+//   time_ms = (t1.tv_sec) * 1000 + t1.tv_usec / 1000;
+//   #endif
+//   return time_ms;
+// }
+
 void usage()
 {
   printf("\t\t [-c|--config] <config_file> [-t|--time] <acq_duration> [-f|--frame] <frame_name>\n");
@@ -124,6 +144,11 @@ int main(int argc, char* argv[])
   gPrevTime      = gCurrTime;
   gPrevHPlotTime = gCurrTime;
   gPrevWPlotTime = gCurrTime;
+  //write the start time in a text file
+  FILE *       startTimeFile;
+  startTimeFile = fopen("startTime.txt","w");
+  fprintf(startTimeFile,"%ld",gCurrTime); // time in milliseconds since Epoch, 1970-01-01 00:00:00 +0000 (UTC)
+  fclose(startTimeFile);
   
   //     ret = CAEN_DGTZ_Reset(0);
   //     printf("Reset Result = %d \n",ret);
@@ -149,7 +174,9 @@ int main(int argc, char* argv[])
     }
     
     /* Get data */
+    
     ret = run_acquisition();
+    
     if (ret) { 
       printf("Error during acquisition loop (ret = %d) .... Exiting\n", ret);
       break;
@@ -168,6 +195,11 @@ int main(int argc, char* argv[])
       
       /* Periodic keyboard input -... could be a separate thread .... */
       ret = check_user_input();
+    if(ret == -1)
+    {
+      cleanup_on_exit();
+      return 255;
+    }
     if (ret) running = 0;
     
     

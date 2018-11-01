@@ -21,12 +21,17 @@ def main(argv):
    parser.add_argument('-c','--config' , help='Config file',required=True)
    parser.add_argument('-t','--time'   , help='Time per acq',required=True)
    parser.add_argument('-f','--folder' , help='Folder name',required=True)
+   parser.add_argument('-k','--keep'   , help='0 = discard raw data; 1 = keep raw data',required=True)
    args = parser.parse_args()
 
    #print values
    print ("Config file      = %s" % args.config )
    print ("Time per acq [s] = %s" % args.time )
    print ("Folder name      = %s" % args.folder )
+   if args.keep == '0':
+     print ("Raw data will be discarded")
+   else:
+     print ("Keeping row data")
 
    counter = 0
 
@@ -48,10 +53,16 @@ def main(argv):
      run = 0
 
    fName = "convert.sh"
+   
 
    while run == 1 :
      #convert old data
      eventsFile = 'Run_' + folder + '/events.dat'
+     #read start time before converting data 
+     fileStartTime = open("startTime.txt", "r") 
+     startTime = fileStartTime.readline()
+     fileStartTime.close()
+     
      #create script
 
      f = open(fName,'w')
@@ -64,12 +75,13 @@ def main(argv):
      f.write("--input %s "   %eventsFile)
      f.write("--output-folder Run_%s " %args.folder)
      f.write("--frame %d " %counter)
-     f.write("--time %s " %args.time)
-     f.write(" && rm Run_%s/binary740.dat " %folder )
-     f.write(" && rm Run_%s/binary742_0.dat " %folder )
-     f.write(" && rm Run_%s/binary742_1.dat " %folder )
-     f.write(" && rm %s " %eventsFile )
-     f.write(" && rm -r Run_%s " %folder )
+     f.write("--time %s " %startTime)
+     if args.keep == '0':
+       f.write(" && rm Run_%s/binary740.dat " %folder )
+       f.write(" && rm Run_%s/binary742_0.dat " %folder )
+       f.write(" && rm Run_%s/binary742_1.dat " %folder )
+       f.write(" && rm %s " %eventsFile )
+       f.write(" && rm -r Run_%s " %folder )
      f.close()
      #and make it executable
      st = os.stat(fName)
@@ -92,6 +104,9 @@ def main(argv):
    #convert last data
    #convert old data
    eventsFile = 'Run_' + folder + '/events.dat'
+   fileStartTime = open("startTime.txt", "r") 
+   startTime = fileStartTime.readline()
+   fileStartTime.close()
    #create script
    f = open(fName,'w')
    f.write("#!/bin/bash\n")
@@ -103,11 +118,13 @@ def main(argv):
    f.write("--input %s "   %eventsFile)
    f.write("--output-folder Run_%s " %args.folder)
    f.write("--frame %d " %counter)
-   f.write(" && rm Run_%s/binary740.dat " %folder )
-   f.write(" && rm Run_%s/binary742_0.dat " %folder )
-   f.write(" && rm Run_%s/binary742_1.dat " %folder )
-   f.write(" && rm %s " %eventsFile )
-   f.write(" && rm -r Run_%s " %folder )
+   f.write("--time %s " %startTime)
+   if args.keep == '0':
+     f.write(" && rm Run_%s/binary740.dat " %folder )
+     f.write(" && rm Run_%s/binary742_0.dat " %folder )
+     f.write(" && rm Run_%s/binary742_1.dat " %folder )
+     f.write(" && rm %s " %eventsFile )
+     f.write(" && rm -r Run_%s " %folder )
    f.close()
    #and make it executable
    st = os.stat(fName)
