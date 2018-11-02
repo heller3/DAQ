@@ -74,22 +74,111 @@ void read_directory(const std::string& name, std::vector<std::string> &v)
 }
 
 
+// template <typename T>
+// void extractCTR(T* histo,double fitPercMin,double fitPercMax, int divs, double tagFwhm, double* res, double* fitRes)
+// {
+//   //first, dummy gaussian fit
+//   TCanvas *cTemp  = new TCanvas("temp","temp");
+//   TF1 *gaussDummy = new TF1("gaussDummy","gaus");
+//   histo->Fit(gaussDummy,"QN");
+//
+//   double f1min = histo->GetXaxis()->GetXmin();
+//   double f1max = histo->GetXaxis()->GetXmax();
+//   // std::cout << f1min << " " << f1max << std::endl;
+//   TF1* f1  = new TF1("f1","crystalball");
+//   f1->SetLineColor(kRed);
+//   f1->SetParameters(gaussDummy->GetParameter(0),gaussDummy->GetParameter(1),gaussDummy->GetParameter(2),1,3);
+//   double fitMin = gaussDummy->GetParameter(1) - fitPercMin*(gaussDummy->GetParameter(2));
+//   double fitMax = gaussDummy->GetParameter(1) + fitPercMax*(gaussDummy->GetParameter(2));
+//   if(fitMin < f1min)
+//   {
+//     fitMin = f1min;
+//   }
+//   if(fitMax > f1max)
+//   {
+//     fitMax = f1max;
+//   }
+//   histo->Fit(f1,"Q","",fitMin,fitMax);
+//   double min,max,min10,max10;
+//   // int divs = 3000;
+//   double step = (f1max-f1min)/divs;
+//   double funcMax = f1->GetMaximum(fitMin,fitMax);
+//   for(int i = 0 ; i < divs ; i++)
+//   {
+//     if( (f1->Eval(f1min + i*step) < funcMax/2.0) && (f1->Eval(f1min + (i+1)*step) > funcMax/2.0) )
+//     {
+//       min = f1min + (i+0.5)*step;
+//     }
+//     if( (f1->Eval(f1min + i*step) > funcMax/2.0) && (f1->Eval(f1min + (i+1)*step) < funcMax/2.0) )
+//     {
+//       max = f1min + (i+0.5)*step;
+//     }
+//     if( (f1->Eval(f1min + i*step) < funcMax/10.0) && (f1->Eval(f1min + (i+1)*step) > funcMax/10.0) )
+//     {
+//       min10 = f1min + (i+0.5)*step;
+//     }
+//     if( (f1->Eval(f1min + i*step) > funcMax/10.0) && (f1->Eval(f1min + (i+1)*step) < funcMax/10.0) )
+//     {
+//       max10 = f1min + (i+0.5)*step;
+//     }
+//   }
+//   res[0] = sqrt(2)*sqrt(pow((max-min),2)-pow(tagFwhm,2));
+//   res[1] = sqrt(2)*sqrt(pow((max10-min10),2)-pow((tagFwhm/2.355)*4.29,2));
+//
+//   fitRes[0] = f1->GetChisquare();
+//   fitRes[1] = f1->GetNDF();
+//   fitRes[2] = f1->GetProb();
+//   fitRes[3] = f1->GetParameter(1);
+//   fitRes[4] = f1->GetParError(1);
+//   // std::cout << f1->GetChisquare()/f1->GetNDF() << std::endl;
+//   delete cTemp;
+// }
+
 template <typename T>
-void extractCTR(T* histo,double fitPercMin,double fitPercMax, int divs, double tagFwhm, double* res, double* fitRes)
+void extractCTR(T* histo,double fitPercMin,double fitPercMax, int divs, double tagFwhm, double* res, double* fitRes,bool realCTR)
 {
-  //first, dummy gaussian fit
+
+  // preliminary gauss fit
   TCanvas *cTemp  = new TCanvas("temp","temp");
   TF1 *gaussDummy = new TF1("gaussDummy","gaus");
-  histo->Fit(gaussDummy,"QN");
+  // resctrict the fitting range of gauss function
 
+  gaussDummy->SetLineColor(kRed);
+  double fitGaussMin = histo->GetMean()-2.0*histo->GetRMS();
+  double fitGaussMax = histo->GetMean()+2.0*histo->GetRMS();
   double f1min = histo->GetXaxis()->GetXmin();
   double f1max = histo->GetXaxis()->GetXmax();
-  // std::cout << f1min << " " << f1max << std::endl;
-  TF1* f1  = new TF1("f1","crystalball");
-  f1->SetLineColor(kRed);
-  f1->SetParameters(gaussDummy->GetParameter(0),gaussDummy->GetParameter(1),gaussDummy->GetParameter(2),1,3);
-  double fitMin = gaussDummy->GetParameter(1) - fitPercMin*(gaussDummy->GetParameter(2));
-  double fitMax = gaussDummy->GetParameter(1) + fitPercMax*(gaussDummy->GetParameter(2));
+  if(fitGaussMin < f1min)
+  {
+    fitGaussMin = f1min;
+  }
+  if(fitGaussMax > f1max)
+  {
+    fitGaussMax = f1max;
+  }
+  TFitResultPtr rGauss = histo->Fit(gaussDummy,"QNS","",fitGaussMin,fitGaussMax);
+  Int_t fitStatusGauss= rGauss;
+
+  //NB fit results converted to int gives the fit status:
+  // fitStatusGauss == 0 -> fit OK
+  // fitStatusGauss != 0 -> fit FAILED
+
+  double fitMin;
+  double fitMax;
+  if(fitStatusGauss != 0) // gauss fit didn't work
+  {
+    // use the histogram values
+    fitMin = fitGaussMin;
+    fitMax = fitGaussMax;
+  }
+  else
+  {
+    // use fit values
+    fitMin = gaussDummy->GetParameter(1) - fitPercMin*(gaussDummy->GetParameter(2));
+    fitMax = gaussDummy->GetParameter(1) + fitPercMax*(gaussDummy->GetParameter(2));
+  }
+
+  // chech that they are not outside the limits defined by user
   if(fitMin < f1min)
   {
     fitMin = f1min;
@@ -98,40 +187,180 @@ void extractCTR(T* histo,double fitPercMin,double fitPercMax, int divs, double t
   {
     fitMax = f1max;
   }
-  histo->Fit(f1,"Q","",fitMin,fitMax);
-  double min,max,min10,max10;
-  // int divs = 3000;
-  double step = (f1max-f1min)/divs;
-  double funcMax = f1->GetMaximum(fitMin,fitMax);
-  for(int i = 0 ; i < divs ; i++)
+
+  //fit with crystalball
+  TF1 *cb  = new TF1("cb","crystalball",f1min,f1max);
+  cb->SetLineColor(kBlue);
+  if(fitStatusGauss != 0) // gauss fit didn't work
   {
-    if( (f1->Eval(f1min + i*step) < funcMax/2.0) && (f1->Eval(f1min + (i+1)*step) > funcMax/2.0) )
+    // use the histogram values
+    cb->SetParameters(histo->GetEntries(),histo->GetMean(),histo->GetRMS(),1,3);
+  }
+  else
+  {
+    // use fit values
+    cb->SetParameters(gaussDummy->GetParameter(0),gaussDummy->GetParameter(1),gaussDummy->GetParameter(2),1,3);
+  }
+  TFitResultPtr rCb = histo->Fit(cb,"QNS","",fitMin,fitMax);
+
+  //fit with gauss + exp
+  TF1* gexp  = new TF1("gexp","[0]/sqrt(2)*exp([2]^2/2/[3]^2-(x-[1])/[3])*(1-TMath::Erf(([1]-x+[2]^2/[3])/(sqrt(2*[2]^2))))",f1min,f1max);
+  gexp->SetLineColor(kGreen);
+  gexp->SetParName(0,"N");
+  gexp->SetParName(1,"Mean");
+  gexp->SetParName(2,"Sigma");
+  gexp->SetParName(3,"tau");
+  // f1->SetParameters(gaussDummy->GetParameter(0),gaussDummy->GetParameter(1),gaussDummy->GetParameter(2),1,3);
+  if(fitStatusGauss != 0) // gauss fit didn't work
+  {
+    // use the histogram values
+    gexp->SetParameter(0,histo->GetEntries());
+    gexp->SetParameter(1,histo->GetMean());
+    gexp->SetParameter(2,histo->GetRMS());
+    gexp->SetParameter(3,histo->GetRMS()); // ROOT really needs all parameters initialized, and a "good" guess for tau is the sigma of the previous fit...
+  }
+  else
+  {
+    // use fit values
+    gexp->SetParameter(0,gaussDummy->GetParameter(0));
+    gexp->SetParameter(1,gaussDummy->GetParameter(1));
+    gexp->SetParameter(2,gaussDummy->GetParameter(2));
+    gexp->SetParameter(3,gaussDummy->GetParameter(2)); // ROOT really needs all parameters initialized, and a "good" guess for tau is the sigma of the previous fit...
+  }
+  TFitResultPtr rGexp = histo->Fit(gexp,"QNS","",fitMin,fitMax);
+
+  Int_t fitStatusCb = rCb;
+  Int_t fitStatusGexp = rGexp;
+
+  double chi2gexp;
+  double chi2cb;
+
+  if(fitStatusGexp == 0) // if Gexp worked
+  {
+    chi2gexp = rGexp->Chi2();
+  }
+  if(fitStatusCb == 0)// if cb worked
+  {
+    chi2cb   = rCb->Chi2();
+  }
+
+
+  //set function to measure ctr etc...
+  TF1 *f1;
+  if((fitStatusGexp  != 0) && (fitStatusCb != 0) && (fitStatusGauss != 0)) // all fit didn't work, just set everything to 0
+  {
+    res[0] = 0;
+    res[1] = 0;
+
+    fitRes[0] = 0;
+    fitRes[1] = 0;
+    fitRes[2] = 0;
+    // res[2] = 0;
+    // res[3] = 0;
+  }
+  else
+  {
+    if((fitStatusGexp  != 0) && (fitStatusCb != 0) && (fitStatusGauss == 0)) // only gauss worked
     {
-      min = f1min + (i+0.5)*step;
+      f1 = gaussDummy;
+      f1->SetLineColor(kRed);
+      histo->Fit(f1,"Q","",fitGaussMin,fitGaussMax);
+      if(realCTR)
+      {
+        res[0] = sqrt(2)*sqrt(pow((2.355*f1->GetParameter(2)),2)-pow(tagFwhm,2));
+        res[1] = sqrt(2)*sqrt(pow((4.29*f1->GetParameter(2)),2)-pow((tagFwhm/2.355)*4.29,2));
+        
+      }
+      else
+      {
+
+      }
+
+
+      fitRes[0] = f1->GetChisquare();
+      fitRes[1] = f1->GetNDF();
+      fitRes[2] = f1->GetProb();
+
+      delete gexp;
+      delete cb;
     }
-    if( (f1->Eval(f1min + i*step) > funcMax/2.0) && (f1->Eval(f1min + (i+1)*step) < funcMax/2.0) )
+    else
     {
-      max = f1min + (i+0.5)*step;
-    }
-    if( (f1->Eval(f1min + i*step) < funcMax/10.0) && (f1->Eval(f1min + (i+1)*step) > funcMax/10.0) )
-    {
-      min10 = f1min + (i+0.5)*step;
-    }
-    if( (f1->Eval(f1min + i*step) > funcMax/10.0) && (f1->Eval(f1min + (i+1)*step) < funcMax/10.0) )
-    {
-      max10 = f1min + (i+0.5)*step;
+      if((fitStatusGexp  != 0) && (fitStatusCb == 0)) // only cb worked
+      {
+        f1 = cb;
+        f1->SetLineColor(kRed);
+        histo->Fit(f1,"Q","",fitMin,fitMax);
+        delete gexp;
+
+      }
+      else if((fitStatusGexp  == 0) && (fitStatusCb != 0)) // only gexp worked
+      {
+        f1 = gexp;
+        f1->SetLineColor(kRed);
+        histo->Fit(f1,"Q","",fitMin,fitMax);
+        delete cb;
+      }
+      else // both worked
+      {
+        if(chi2gexp > chi2cb)
+        {
+          f1 = cb;
+          f1->SetLineColor(kRed);
+          histo->Fit(f1,"Q","",fitMin,fitMax);
+          delete gexp;
+        }
+        else
+        {
+          f1 = gexp;
+          f1->SetLineColor(kRed);
+          histo->Fit(f1,"Q","",fitMin,fitMax);
+          delete cb;
+        }
+      }
+
+      double min,max,min10,max10;
+      // int divs = 3000;
+      double step = (f1max-f1min)/divs;
+      double funcMax = f1->GetMaximum(fitMin,fitMax);
+      for(int i = 0 ; i < divs ; i++)
+      {
+        if( (f1->Eval(f1min + i*step) < funcMax/2.0) && (f1->Eval(f1min + (i+1)*step) > funcMax/2.0) )
+        {
+          min = f1min + (i+0.5)*step;
+        }
+        if( (f1->Eval(f1min + i*step) > funcMax/2.0) && (f1->Eval(f1min + (i+1)*step) < funcMax/2.0) )
+        {
+          max = f1min + (i+0.5)*step;
+        }
+        if( (f1->Eval(f1min + i*step) < funcMax/10.0) && (f1->Eval(f1min + (i+1)*step) > funcMax/10.0) )
+        {
+          min10 = f1min + (i+0.5)*step;
+        }
+        if( (f1->Eval(f1min + i*step) > funcMax/10.0) && (f1->Eval(f1min + (i+1)*step) < funcMax/10.0) )
+        {
+          max10 = f1min + (i+0.5)*step;
+        }
+      }
+      if(realCTR)
+      {
+        res[0] = max-min;
+        res [1] = max10-min10;
+      }
+      else
+      {
+        res[0] = sqrt(2)*sqrt(pow((max-min),2)-pow(tagFwhm,2));
+        res[1] = sqrt(2)*sqrt(pow((max10-min10),2)-pow((tagFwhm/2.355)*4.29,2));
+      }
+
+
+      fitRes[0] = f1->GetChisquare();
+      fitRes[1] = f1->GetNDF();
+      fitRes[2] = f1->GetProb();
+      // std::cout << f1->GetChisquare()/f1->GetNDF() << std::endl;
+      delete cTemp;
     }
   }
-  res[0] = sqrt(2)*sqrt(pow((max-min),2)-pow(tagFwhm,2));
-  res[1] = sqrt(2)*sqrt(pow((max10-min10),2)-pow((tagFwhm/2.355)*4.29,2));
-
-  fitRes[0] = f1->GetChisquare();
-  fitRes[1] = f1->GetNDF();
-  fitRes[2] = f1->GetProb();
-  fitRes[3] = f1->GetParameter(1);
-  fitRes[4] = f1->GetParError(1);
-  // std::cout << f1->GetChisquare()/f1->GetNDF() << std::endl;
-  delete cTemp;
 }
 
 
@@ -170,7 +399,7 @@ void usage()
             << "\t\t" << "--divs <value>                                     - n of divisions when looking for FWHM - default = 10000"  << std::endl
             << "\t\t" << "--bins <value>                                     - n of bins in summary CTR histograms - deafult 40"  << std::endl
             << "\t\t" << "--tagFwhm <value>                                  - FWHM timing resolution of reference board, in sec - default = 70e-12"  << std::endl
-            << "\t\t" << "--func <value>                                     - function for fitting, 0 = gauss, 1 = crystalball and sub of tagFwhm, then multipl by sqrt(2) (default = 0)"  << std::endl
+            << "\t\t" << "--func <value>                                     - function for fitting, 0 = gauss, 1 = crystalball and sub of tagFwhm, then multipl by sqrt(2), 2 = same as 1, but no sub of tagFwhm and no *sqrt(2) i.e. just real fwhm (default = 0)"  << std::endl
             << "\t\t" << "--start-time <value>                               - start time to fill ctr plot [h]"  << std::endl
             << "\t\t" << std::endl
             << "\t\t" << "--end-time <value>                                 - end time to fill ctr plot [h]"  << std::endl
@@ -387,6 +616,12 @@ int main(int argc, char** argv)
       usage();
       return 1;
     }
+  }
+
+  bool realCTR = false;
+  if(func == 2)
+  {
+    realCTR = true;
   }
 
   //temporary correction //FIXME
@@ -656,9 +891,9 @@ int main(int argc, char** argv)
   Int_t NDF = gaussCTR->GetNDF();
   Double_t chi2red = chi2 / NDF;
 
-  if(func == 1)
+  if(func > 0)
   {
-    extractCTR(ctr,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes);
+    extractCTR(ctr,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes,realCTR);
   }
 
 //   std::cout << ret[0]*1e12 << "\t"
@@ -707,9 +942,9 @@ int main(int argc, char** argv)
   double ret_corr[2];
   double fitRes_corr[5];
 
-  if(func == 1)
+  if(func > 0)
   {
-    extractCTR(ctrCorr,fitPercMin,fitPercMax,divs,tagFwhm,ret_corr,fitRes_corr);
+    extractCTR(ctrCorr,fitPercMin,fitPercMax,divs,tagFwhm,ret_corr,fitRes_corr,realCTR);
   }
 
 
@@ -882,7 +1117,7 @@ int main(int argc, char** argv)
       }
     }
     projection->GetXaxis()->SetRangeUser( Peaks_profile[peakID_profile] - (Peaks_profile[peakID_profile] * percDown),Peaks_profile[peakID_profile] + (Peaks_profile[peakID_profile] * percUp));
-    extractCTR(projection,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes);
+    extractCTR(projection,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes,realCTR);
     y_peakAvsTime.push_back(fitRes[3]);
     ey_peakAvsTime.push_back(fitRes[4]);
     x_peakAvsTime.push_back(peakAvsTime->GetXaxis()->GetBinCenter(i+1));
@@ -954,7 +1189,7 @@ int main(int argc, char** argv)
       }
     }
     projection->GetXaxis()->SetRangeUser( Peaks_profile[peakID_profile] - (Peaks_profile[peakID_profile] * percDown),Peaks_profile[peakID_profile] + (Peaks_profile[peakID_profile] * percUp));
-    extractCTR(projection,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes);
+    extractCTR(projection,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes,realCTR);
     y_peakBvsTime.push_back(fitRes[3]);
     ey_peakBvsTime.push_back(fitRes[4]);
     x_peakBvsTime.push_back(peakBvsTime->GetXaxis()->GetBinCenter(i+1));
@@ -1022,7 +1257,7 @@ int main(int argc, char** argv)
       }
     }
     projection->GetXaxis()->SetRangeUser( Peaks_profile[peakID_profile] - 3e-9,Peaks_profile[peakID_profile] +4e-9);
-    extractCTR(projection,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes);
+    extractCTR(projection,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes,realCTR);
      y_tAvsTime.push_back(fitRes[3]);
     ey_tAvsTime.push_back(fitRes[4]);
      x_tAvsTime.push_back(tAvsTime->GetXaxis()->GetBinCenter(i+1));
@@ -1094,7 +1329,7 @@ int main(int argc, char** argv)
       }
     }
     projection->GetXaxis()->SetRangeUser( Peaks_profile[peakID_profile] - 3e-9,Peaks_profile[peakID_profile] +4e-9);
-    extractCTR(projection,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes);
+    extractCTR(projection,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes,realCTR);
      y_tBvsTime.push_back(fitRes[3]);
     ey_tBvsTime.push_back(fitRes[4]);
      x_tBvsTime.push_back(tBvsTime->GetXaxis()->GetBinCenter(i+1));
