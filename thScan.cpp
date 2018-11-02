@@ -146,14 +146,14 @@ void usage()
             << "\t\t" << "--chAmin                                           - min in chA charge histogram [ADC channels]          - default = 0 " << std::endl
             << "\t\t" << "--chAmax                                           - max in chA charge histogram [ADC channels]          - default = max of TTree files " << std::endl
             << "\t\t" << "--chAbins                                          - bins in chA charge histogram                        - default = 65535 " << std::endl
-            
+
             << "\t\t" << "--chBnum                                           - number of second charge channel                                          - default = 32 " << std::endl
             << "\t\t" << "--chBmin                                           - min in chB charge histogram [ADC channels]          - default = 0 " << std::endl
             << "\t\t" << "--chBmax                                           - max in chB charge histogram [ADC channels]          - default = 65535 " << std::endl
             << "\t\t" << "--chBbins                                          - bins in chB charge histogram                        - default = 1000 " << std::endl
-            
-            
-            << "\t\t" << "--tAnum                                            - number of first time channel                                           - default = chAnum " << std::endl 
+
+
+            << "\t\t" << "--tAnum                                            - number of first time channel                                           - default = chAnum " << std::endl
             << "\t\t" << "--tBnum                                            - number of second time channel                                          - default = chBnum " << std::endl
             << "\t\t" << "--percDown                                         - lower limit of photopeak fit, in fraction of photopeak (1 = 100%) - default = 0.04 " << std::endl
             << "\t\t" << "--percUp                                           - upper limit of photopeak fit, in fraction of photopeak (1 = 100%) - default = 0.06" << std::endl
@@ -195,15 +195,15 @@ int main(int argc, char** argv)
   int chB = 32;
   int tA = 12;
   int tB = 32;
-  
+
   float chAmin = 0;
   float chBmin = 0;
   float chAmax = 65535;
   float chBmax = 65535;
   float chAbins = 1000;
   float chBbins = 1000;
-  
-  
+
+
   double sigmas = 2.0;
   double percDown = 0.04;
   double percUp = 0.06;
@@ -219,7 +219,7 @@ int main(int argc, char** argv)
   Float_t fitPercMin = 5;
   Float_t fitPercMax = 6;
   int divs       = 10000;
-  int bins = 40;  
+  int bins = 40;
   Float_t tagFwhm = 70.0e-12; //s
   int func = 0;
   double start_time = 0;
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
   bool start_time_given = false;
   bool end_time_given = false;
   int crystal = 0;
-  
+
 
   static struct option longOptions[] =
   {
@@ -251,9 +251,9 @@ int main(int argc, char** argv)
       { "chAbins", required_argument, 0, 0 },
       { "chBmin", required_argument, 0, 0 },
       { "chBmax", required_argument, 0, 0 },
-      { "chBbins", required_argument, 0, 0 },  
-      { "profile", required_argument, 0, 0 },  
-      { "binning", required_argument, 0, 0 }, 
+      { "chBbins", required_argument, 0, 0 },
+      { "profile", required_argument, 0, 0 },
+      { "binning", required_argument, 0, 0 },
       { "fitPercMin", required_argument, 0, 0 },
       { "fitPercMax", required_argument, 0, 0 },
       { "divs", required_argument, 0, 0 },
@@ -265,11 +265,11 @@ int main(int argc, char** argv)
       { "crystal", required_argument, 0, 0 },
       { NULL, 0, 0, 0 }
   };
-  while(1) 
+  while(1)
   {
      int optionIndex = 0;
      int c = getopt_long(argc, argv, "i:o:t:", longOptions, &optionIndex);
-      if (c == -1) 
+      if (c == -1)
       {
         break;
       }
@@ -388,17 +388,17 @@ int main(int argc, char** argv)
       return 1;
     }
   }
-  
-  //temporary correction //FIXME 
+
+  //temporary correction //FIXME
   //p0 + p1*x
   float p0 = -1.097e-9;
   float p1 = -1.246e-11;
-  
+
   float yCenter = p0 + 2.0*p1;
-  
- 
-  
-  
+
+
+
+
   if(!tAgiven)
   {
     tA = chA;
@@ -407,21 +407,21 @@ int main(int argc, char** argv)
   {
     tB = chB;
   }
-  
-  //chose appropriate time tag 
+
+  //chose appropriate time tag
   std::string timeTag = "";
   if(prof == 0)
   {
     timeTag = "ExtendedTimeTag";
   }
-  else 
+  else
   {
     timeTag = "DeltaTimeTag";
-    
+
   }
-  
+
 //   std::cout << timeCut << std::endl;
-  
+
   std::cout << std::endl;
   std::cout << "Channel    Charge ch      Time ch " << std::endl;
   std::cout << "   A    " << chA << "   " << tA << std::endl;
@@ -450,12 +450,12 @@ int main(int argc, char** argv)
     tree->Add(listInputFiles[i].c_str());
   }
   std::cout << "... done." << std::endl;
-  
+
   double tStart = tree->GetMinimum(timeTag.c_str())/(1e9*3600);
   double tEnd   = (tree->GetMaximum(timeTag.c_str()) - tree->GetMinimum(timeTag.c_str()))/(1e9*3600);
-  
+
   TCut timeCut;
-  
+
   if(start_time_given)
   {
     std::stringstream ssCut;
@@ -468,7 +468,7 @@ int main(int argc, char** argv)
     ssCut << " ((" << timeTag << " )/(1e9*3600) - "<< tStart << ")" << " <= " << end_time;
     timeCut += ssCut.str().c_str();
   }
-  
+
   std::stringstream s_file;
   s_file << outputFileName << "_" << crystal << ".root";
 //   outputFileName = outputFileName + "_" + itoa(crystal) + ".root";
@@ -476,7 +476,7 @@ int main(int argc, char** argv)
   double ret[2];
   double fitRes[5];
 
-    
+
   std::stringstream sname;
   sname << "t_" << tA;
   TH1F *t_chA = new TH1F(sname.str().c_str(),sname.str().c_str(),1000,-0.15e-6,0.05e-6);
@@ -517,7 +517,7 @@ int main(int argc, char** argv)
   sname << "ch" << chA << " >> " << "h_ch" << chA;
   tree->Draw(sname.str().c_str(),timeCut);
   sname.str("");
-  
+
 
   sname << "h_ch" << chB;
   TH1F *h_chB = new TH1F(sname.str().c_str(),sname.str().c_str(),chBbins,chBmin,chBmax);
@@ -531,7 +531,7 @@ int main(int argc, char** argv)
   sname << "ch" << chB << " >> " << "h_ch" << chB;
   tree->Draw(sname.str().c_str(),timeCut);
   sname.str("");
-  
+
 
   //---------------------------//
   // find cuts                 //
@@ -559,16 +559,17 @@ int main(int argc, char** argv)
   gaussCH2->SetParameter(2,(ENres*PeaksCH2[peakID])/2.355); // sigma
   h_chA->Fit(gaussCH2,"Q","",PeaksCH2[peakID] - (PeaksCH2[peakID] * percDown),PeaksCH2[peakID] + (PeaksCH2[peakID] * percUp));
 
-  sname << "ch" << chA << " > " << PeaksCH2[peakID] - (sigmas * gaussCH2->GetParameter(2)) << "&& ch" << chA << " < " << PeaksCH2[peakID] + (sigmas * gaussCH2->GetParameter(2)) ;
+  // sname << "ch" << chA << " > " << PeaksCH2[peakID] - (sigmas * gaussCH2->GetParameter(2)) << "&& ch" << chA << " < " << PeaksCH2[peakID] + (sigmas * gaussCH2->GetParameter(2)) ;
+  sname << "ch" << chA << " > " << gaussCH2->GetParameter(1) - (sigmas * gaussCH2->GetParameter(2)) << "&& ch" << chA << " < " << gaussCH2->GetParameter(1) + (sigmas * gaussCH2->GetParameter(2)) ;
   TCut peakch2 = sname.str().c_str();
   sname.str("");
-  
+
 //   std::cout << peakch2 std::endl;
   sname << "ch" << chA << " >> " << "h_ch" << chA << "_highlight";
   tree->Draw(sname.str().c_str(),timeCut+peakch2);
   sname.str("");
-  
-  
+
+
 
   //ch9
 //   c_hB->cd();
@@ -593,41 +594,42 @@ int main(int argc, char** argv)
   gaussCH9->SetParameter(2,(ENres*PeaksCH9[peakID9])/2.355); // sigma
   h_chB->Fit(gaussCH9,"Q","",PeaksCH9[peakID9] - (PeaksCH9[peakID9] * percDown),PeaksCH9[peakID9] + (PeaksCH9[peakID9] * percUp));
   // std::stringstream sname;
-  sname << "ch" << chB << " > " << PeaksCH9[peakID9] - (sigmas * gaussCH9->GetParameter(2)) << "&& ch" << chB << " < " << PeaksCH9[peakID9] + (sigmas * gaussCH9->GetParameter(2)) ;
+  // sname << "ch" << chB << " > " << PeaksCH9[peakID9] - (sigmas * gaussCH9->GetParameter(2)) << "&& ch" << chB << " < " << PeaksCH9[peakID9] + (sigmas * gaussCH9->GetParameter(2)) ;
+  sname << "ch" << chB << " > " << gaussCH9->GetParameter(1) - (sigmas * gaussCH9->GetParameter(2)) << "&& ch" << chB << " < " << gaussCH9->GetParameter(1) + (sigmas * gaussCH9->GetParameter(2)) ;
   TCut peakch9 = sname.str().c_str();
   sname.str("");
-  
+
 //   std::cout << peakch9 std::endl;
   sname << "ch" << chB << " >> " << "h_ch" << chB << "_highlight";
   tree->Draw(sname.str().c_str(),timeCut+peakch9);
   sname.str("");
-  
+
   //avoid zeroes!
   sname << "t" << tA << " != 0 && t" << tB <<" != 0";
   TCut noZeros = sname.str().c_str();
   sname.str("");
-  
-  
-  
+
+
+
   //---------------------------//
   // ctr plot                  //
   //---------------------------//
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
+
+
   TH1F *ctr = new TH1F("ctr","ctr",ctrBins,ctrMin,ctrMax);
   ctr->GetXaxis()->SetTitle("t_b - t_a [s]");
   TCanvas *c_ht = new TCanvas("c_ht","c_ht",1200,800);
   sname << "t" << tB << " - t" << tA <<" >> ctr";
   tree->Draw(sname.str().c_str(),peakch2+peakch9+noZeros+timeCut);
   sname.str("");
-  
+
   TSpectrum *spectrumCTR;
   spectrumCTR = new TSpectrum(5);
   Int_t peaksNCTR = spectrumCTR->Search(ctr,1,"",0.5);
@@ -645,7 +647,7 @@ int main(int argc, char** argv)
   }
   double peakPos = PeaksCTR[peakIDCTR];
   double rmsCTR = ctr->GetRMS();
-  
+
 
   TF1 *gaussCTR = new TF1("gaussCTR","gaus");
   ctr->Fit(gaussCTR,"Q","",peakPos - howManyRMS*rmsCTR,peakPos + howManyRMS*rmsCTR);
@@ -653,29 +655,29 @@ int main(int argc, char** argv)
   Double_t chi2 = gaussCTR->GetChisquare();
   Int_t NDF = gaussCTR->GetNDF();
   Double_t chi2red = chi2 / NDF;
-  
+
   if(func == 1)
   {
     extractCTR(ctr,fitPercMin,fitPercMax,divs,tagFwhm,ret,fitRes);
   }
-  
+
 //   std::cout << ret[0]*1e12 << "\t"
 //             << ret[1]*1e12 << std::endl;
-  
-  
-  
+
+
+
   //ctr corr
   std::stringstream var;
   var << "(t" << tB << " - t" << tA << ") + (" << yCenter << " - (((( " << timeTag << " )/(1e9*3600) - "<< tStart << "))* "<< p1 << ") + " << p0 << ") >> ctrCorr" ;
   std::cout << var.str() << std::endl;
-  
+
   TH1F *ctrCorr = new TH1F("ctrCorr","ctrCorr",ctrBins,-4e-9,-2e-9);
   ctrCorr->GetXaxis()->SetTitle("t_b - t_a [s]");
   TCanvas *c_ht_corr = new TCanvas("c_ht_corr","c_ht_corr",1200,800);
 //   sname << "t" << tB << " - t" << tA <<" >> c_ht_corr";
   tree->Draw(var.str().c_str(),peakch2+peakch9+noZeros+timeCut);
 //   sname.str("");
-  
+
   TSpectrum *spectrumCTR_corr;
   spectrumCTR_corr = new TSpectrum(5);
   Int_t peaksNCTR_corr = spectrumCTR_corr->Search(ctrCorr,1,"",0.5);
@@ -693,7 +695,7 @@ int main(int argc, char** argv)
   }
   double peakPos_corr = PeaksCTR_corr[peakIDCTR_corr];
   double rmsCTR_corr = ctrCorr->GetRMS();
-  
+
 
   TF1 *gaussCTR_corr = new TF1("gaussCTR_corr","gaus");
   ctrCorr->Fit(gaussCTR_corr,"Q","",peakPos_corr - howManyRMS*rmsCTR_corr,peakPos_corr + howManyRMS*rmsCTR_corr);
@@ -704,33 +706,33 @@ int main(int argc, char** argv)
   var.str("");
   double ret_corr[2];
   double fitRes_corr[5];
-  
+
   if(func == 1)
   {
     extractCTR(ctrCorr,fitPercMin,fitPercMax,divs,tagFwhm,ret_corr,fitRes_corr);
   }
-  
-  
+
+
   std::cout << "Corr " << ret_corr[0]*1e12 << "\t"
             << ret_corr[1]*1e12 << std::endl;
-  
+
 //   std::cout << "CTR FWHM [ps]\tCTR error [ps]\tChi^2/NDF\tPeak A Pos [ADC]\tEn Res A [FWHM]\tPeak B Pos [ADC]\tEn Res B [FWHM] " << std::endl;
 //     std::cout << std::setw(20);
-  
+
   std::ofstream textfile;
    std::stringstream s_file2;
   s_file2 << textFileName << "_" << crystal << ".txt";
 //   outputFileName = outputFileName + "_" + itoa(crystal) + ".root";
 //   TFile *outputFile = new TFile(s_file.str().c_str(),"RECREATE");
   textfile.open (s_file2.str().c_str(),std::ofstream::out);
-  
+
   if(func == 0)
   {
     std::cout << "CTR FWHM [ps]\tCTR error [ps]\tChi^2/NDF\tPeak A Pos [ADC]\tEn Res A [FWHM]\tPeak B Pos [ADC]\tEn Res B [FWHM]\t Entries" << std::endl;
-    std::cout << gaussCTR->GetParameter(2)*2.355*1e12 << "\t" 
-             << gaussCTR->GetParError(2)*2.355*1e12 << "\t"  
-            << chi2red                   << "\t"  
-            << gaussCH2->GetParameter(1) << "\t"  
+    std::cout << gaussCTR->GetParameter(2)*2.355*1e12 << "\t"
+             << gaussCTR->GetParError(2)*2.355*1e12 << "\t"
+            << chi2red                   << "\t"
+            << gaussCH2->GetParameter(1) << "\t"
             << (gaussCH2->GetParameter(2)*2.355)/gaussCH2->GetParameter(1) << "\t"
             << gaussCH9->GetParameter(1) << "\t"
             << (gaussCH9->GetParameter(2)*2.355)/gaussCH9->GetParameter(1) << "\t"
@@ -739,62 +741,62 @@ int main(int argc, char** argv)
 
     textfile << "#CTR FWHM [ps]\tCTR error [ps]\tChi^2/NDF\tPeak A Pos [ADC]\tEn Res A [FWHM]\tPeak B Pos [ADC]\tEn Res B [FWHM]\t Entries" << std::endl;
 
-    textfile << gaussCTR->GetParameter(2)*2.355*1e12 << "\t" 
-           << gaussCTR->GetParError(2)*2.355*1e12 << "\t"  
-           << chi2red                   << "\t"  
+    textfile << gaussCTR->GetParameter(2)*2.355*1e12 << "\t"
+           << gaussCTR->GetParError(2)*2.355*1e12 << "\t"
+           << chi2red                   << "\t"
            << gaussCH2->GetParameter(1) <<  "\t"
            << (gaussCH2->GetParameter(2)*2.355)/gaussCH2->GetParameter(1) << "\t"
            << gaussCH9->GetParameter(1) <<  "\t"
            << (gaussCH9->GetParameter(2)*2.355)/gaussCH9->GetParameter(1) << "\t"
            << ctr->GetEntries() << "\t"
            << std::endl;
-  
+
   }
   else
   {
     std::cout << "CTR FWHM [ps]\tCTR error [ps]\tChi^2/NDF\tPeak A Pos [ADC]\tEn Res A [FWHM]\tPeak B Pos [ADC]\tEn Res B [FWHM]\t Entries" << std::endl;
-    std::cout << ret[0]*1e12 << "\t" 
-              << 0 << "\t"  
-              << fitRes[0]/fitRes[1]                << "\t"  
-              << gaussCH2->GetParameter(1) << "\t"  
+    std::cout << ret[0]*1e12 << "\t"
+              << 0 << "\t"
+              << fitRes[0]/fitRes[1]                << "\t"
+              << gaussCH2->GetParameter(1) << "\t"
               << (gaussCH2->GetParameter(2)*2.355)/gaussCH2->GetParameter(1) << "\t"
               << gaussCH9->GetParameter(1) << "\t"
               << (gaussCH9->GetParameter(2)*2.355)/gaussCH9->GetParameter(1) << "\t"
               << ctr->GetEntries() << "\t"
               << std::endl;
-    
-    textfile << "#CTR FWHM [ps]\tCTR error [ps]\tChi^2/NDF\tPeak A Pos [ADC]\tEn Res A [FWHM]\tPeak B Pos [ADC]\tEn Res B [FWHM]\t Entries" << std::endl;      
-    textfile  << ret[0]*1e12 << "\t" 
-              << 0 << "\t"  
-              << fitRes[0]/fitRes[1]                << "\t"  
-              << gaussCH2->GetParameter(1) << "\t"  
+
+    textfile << "#CTR FWHM [ps]\tCTR error [ps]\tChi^2/NDF\tPeak A Pos [ADC]\tEn Res A [FWHM]\tPeak B Pos [ADC]\tEn Res B [FWHM]\t Entries" << std::endl;
+    textfile  << ret[0]*1e12 << "\t"
+              << 0 << "\t"
+              << fitRes[0]/fitRes[1]                << "\t"
+              << gaussCH2->GetParameter(1) << "\t"
               << (gaussCH2->GetParameter(2)*2.355)/gaussCH2->GetParameter(1) << "\t"
               << gaussCH9->GetParameter(1) << "\t"
               << (gaussCH9->GetParameter(2)*2.355)/gaussCH9->GetParameter(1) << "\t"
               << ctr->GetEntries() << "\t"
-              << std::endl;       
-    
+              << std::endl;
+
   }
   textfile.close();
-  
-  
-  
+
+
+
   //draw ctr vs time tag
-  
-  
-  
-  
-  //bins around every "binning" seconds 
-  // tEnd is length in hours, so tEnd * (3600/binning) bins 
+
+
+
+
+  //bins around every "binning" seconds
+  // tEnd is length in hours, so tEnd * (3600/binning) bins
   int TenMinBins = (int) (tEnd * (3600/binning));
   double tPerBin = tEnd / TenMinBins;
   if(TenMinBins < 4)
   {
     TenMinBins = 4;
   }
-  
+
 //   std::cout << tStart << " " << tEnd << std::endl;
-  
+
   var << "t" << tB << "- t" << tA << " :((" << timeTag << " )/(1e9*3600) - "<< tStart << ") >> ctrVsTime";
   TH2F *ctrVsTime = new TH2F("ctrVsTime","ctrVsTime",TenMinBins,0,tEnd,ctrBins,ctrMin,ctrMax);
   ctrVsTime->GetXaxis()->SetTitle("Acq. time [h]");
@@ -803,9 +805,9 @@ int main(int argc, char** argv)
   var.str("");
 //   double tStart2 = (tree->GetMinimum("DeltaTimeTag"))/(1e9*3600);
 //   double tEnd2   = (tree->GetMaximum("DeltaTimeTag") - tree->GetMinimum("DeltaTimeTag"))/(1e9*3600);
-//   
-//   //bins around every 10 minutes 
-//   // tEnd2 is length in hours, so tEnd2 * 6 bins 
+//
+//   //bins around every 10 minutes
+//   // tEnd2 is length in hours, so tEnd2 * 6 bins
 //   std::cout << "tEnd2" << " " << tEnd2 << std::endl;
 //   int TenMinBins2 = (int) (tEnd2 * (3600/binning));
 // //   std::cout << "TenMinBins2" << " " << TenMinBins2 << std::endl;
@@ -814,8 +816,8 @@ int main(int argc, char** argv)
 //     TenMinBins2 = 4;
 //   }
 // //   std::cout << "TenMinBins2" << " " << TenMinBins2 << std::endl;
-//   
-//   
+//
+//
 //   TH2F *ctrVsDeltaTime = new TH2F("ctrVsDeltaTime","ctrVsDeltaTime",TenMinBins2,tStart2,tEnd2,ctrBins,ctrMin,ctrMax);
 //   var << "t" << tB << "- t" << tA << " :(DeltaTimeTag )/(1e9*3600) - "<< tStart2 <<" >> ctrVsDeltaTime";
 //   ctrVsDeltaTime->GetXaxis()->SetTitle("Acq. time [h]");
@@ -827,7 +829,7 @@ int main(int argc, char** argv)
   TCanvas *newCanvas = new TCanvas("newCanvas","newCanvas",1200,800);
   gStyle->SetOptStat(0);
   ctrVsTime->ProfileX();
-  profile = (TProfile*) gDirectory->Get("ctrVsTime_pfx");  
+  profile = (TProfile*) gDirectory->Get("ctrVsTime_pfx");
   profile->GetYaxis()->SetTitle("CTR peak position [s]");
   profile->GetXaxis()->SetRangeUser(-1.2e-9,1.05e-9);
   s_title << "CTR peak position vs. acq time - crystal " << crystal;
@@ -840,11 +842,11 @@ int main(int argc, char** argv)
   s_title << "ctrVsTime_" << crystal << ".png";
 //   img->WriteImage(s_title.str().c_str());
   s_title.str("");
-  
-  
-  
 
-  
+
+
+
+
   //--------------------//
   //peak A vs time      //
   //--------------------//
@@ -857,7 +859,7 @@ int main(int argc, char** argv)
   std::vector<double> y_peakAvsTime;
   std::vector<double> ex_peakAvsTime;
   std::vector<double> ey_peakAvsTime;
-  
+
   for(int i = 0 ; i < TenMinBins; i++)
   {
     std::stringstream s_title_in;
@@ -885,7 +887,7 @@ int main(int argc, char** argv)
     ey_peakAvsTime.push_back(fitRes[4]);
     x_peakAvsTime.push_back(peakAvsTime->GetXaxis()->GetBinCenter(i+1));
     ex_peakAvsTime.push_back(tPerBin/sqrt(12));
-    
+
     outputFile->cd();
     projection->Write();
 //     std::cout << fitRes[3] << "\n";
@@ -912,10 +914,10 @@ int main(int argc, char** argv)
   peakAvsTime->GetYaxis()->SetRangeUser(chAmin,chAmax);
   s_title.str("");
   var.str("");
-  
-  
-  
-  
+
+
+
+
   //--------------------//
   //peak B vs time
   //--------------------//
@@ -924,12 +926,12 @@ int main(int argc, char** argv)
   peakBvsTime->GetXaxis()->SetTitle("Acq. time [h]");
   peakBvsTime->GetYaxis()->SetTitle("[ADC channels]");
   tree->Draw(var.str().c_str());
-  
+
   std::vector<double> x_peakBvsTime;
   std::vector<double> y_peakBvsTime;
   std::vector<double> ex_peakBvsTime;
   std::vector<double> ey_peakBvsTime;
-  
+
   for(int i = 0 ; i < TenMinBins; i++)
   {
     std::stringstream s_title_in;
@@ -957,7 +959,7 @@ int main(int argc, char** argv)
     ey_peakBvsTime.push_back(fitRes[4]);
     x_peakBvsTime.push_back(peakBvsTime->GetXaxis()->GetBinCenter(i+1));
     ex_peakBvsTime.push_back(tPerBin/sqrt(12));
-    
+
     outputFile->cd();
     projection->Write();
 //     std::cout << fitRes[3] << "\n";
@@ -984,20 +986,20 @@ int main(int argc, char** argv)
   peakBvsTime->GetYaxis()->SetRangeUser(chBmin,chBmax);
   s_title.str("");
   var.str("");
-  
-  
+
+
   //tA vs time
   var << "t" << tA << " :((" << timeTag << " )/(1e9*3600) - "<< tStart << ") >> tAvsTime";
   TH2F *tAvsTime = new TH2F("tAvsTime","tAvsTime",TenMinBins,0,tEnd,1000,-0.10e-6,0.05e-6);
   tAvsTime->GetXaxis()->SetTitle("Acq. time [h]");
   tAvsTime->GetYaxis()->SetTitle("[ADC channels]");
   tree->Draw(var.str().c_str(),peakch2+noZeros);
-  
+
   std::vector<double>  x_tAvsTime;
   std::vector<double>  y_tAvsTime;
   std::vector<double> ex_tAvsTime;
   std::vector<double> ey_tAvsTime;
-  
+
   for(int i = 0 ; i < TenMinBins; i++)
   {
     std::stringstream s_title_in;
@@ -1025,7 +1027,7 @@ int main(int argc, char** argv)
     ey_tAvsTime.push_back(fitRes[4]);
      x_tAvsTime.push_back(tAvsTime->GetXaxis()->GetBinCenter(i+1));
     ex_tAvsTime.push_back(tPerBin/sqrt(12));
-    
+
     outputFile->cd();
     projection->Write();
 //     std::cout << fitRes[3] << "\n";
@@ -1044,7 +1046,7 @@ int main(int argc, char** argv)
   TCanvas *newCanvas_tA = new TCanvas("newCanvas_tA","newCanvas_tA",1200,800);
   graph_tAvsTime->GetYaxis()->SetRangeUser(-65.5e-9,-64.5e-9);
   graph_tAvsTime->Draw("AP");
-  
+
   newCanvas_tA->cd();
   gSystem->ProcessEvents();
   TImage *img_tA = TImage::Create();
@@ -1053,23 +1055,23 @@ int main(int argc, char** argv)
 //   img_tA->WriteImage(s_title.str().c_str());
   s_title.str("");
   tAvsTime->GetYaxis()->SetRangeUser(-0.10e-6,0.05e-6);
-  
-  
-  
+
+
+
   var.str("");
-  
+
   //tB vs time
   var << "t" << tB << " :((" << timeTag << " )/(1e9*3600) - "<< tStart << ") >> tBvsTime";
   TH2F *tBvsTime = new TH2F("tBvsTime","tBvsTime",TenMinBins,0,tEnd,1000,-0.10e-6,0.05e-6);
   tBvsTime->GetXaxis()->SetTitle("Acq. time [h]");
   tBvsTime->GetYaxis()->SetTitle("[ADC channels]");
   tree->Draw(var.str().c_str(),noZeros);
-  
+
   std::vector<double>  x_tBvsTime;
   std::vector<double>  y_tBvsTime;
   std::vector<double> ex_tBvsTime;
   std::vector<double> ey_tBvsTime;
-  
+
   for(int i = 0 ; i < TenMinBins; i++)
   {
     std::stringstream s_title_in;
@@ -1097,7 +1099,7 @@ int main(int argc, char** argv)
     ey_tBvsTime.push_back(fitRes[4]);
      x_tBvsTime.push_back(tBvsTime->GetXaxis()->GetBinCenter(i+1));
     ex_tBvsTime.push_back(tPerBin/sqrt(12));
-    
+
     outputFile->cd();
     projection->Write();
 //     std::cout << fitRes[3] << "\n";
@@ -1116,7 +1118,7 @@ int main(int argc, char** argv)
   TCanvas *newCanvas_tB = new TCanvas("newCanvas_tB","newCanvas_tB",1200,800);
   graph_tBvsTime->GetYaxis()->SetRangeUser(-65e-9,-64e-9);
   graph_tBvsTime->Draw("AP");
-  
+
   newCanvas_tB->cd();
   gSystem->ProcessEvents();
   TImage *img_tB = TImage::Create();
@@ -1125,12 +1127,12 @@ int main(int argc, char** argv)
 //   img_tB->WriteImage(s_title.str().c_str());
   s_title.str("");
   tBvsTime->GetYaxis()->SetRangeUser(-0.10e-6,0.05e-6);
-  
+
   var.str("");
-  
-  
+
+
   gStyle->SetOptStat(1111);
-  
+
   sname.str("");
   sname << "Charge histogram - ch "<< chA;
   TCanvas *c_histoA = new TCanvas(sname.str().c_str(),sname.str().c_str(),1200,800);
@@ -1140,9 +1142,9 @@ int main(int argc, char** argv)
   h_chA_highlight->SetFillColor(kGreen);
   h_chA_highlight->SetFillStyle(3001);
   h_chA_highlight->Draw("same");
-  
+
   sname.str("");
-  
+
   sname << "Charge histogram - ch "<< chB;
   TCanvas *c_histoB = new TCanvas(sname.str().c_str(),sname.str().c_str(),1200,800);
   c_histoB->cd();
@@ -1151,11 +1153,11 @@ int main(int argc, char** argv)
   h_chB_highlight->SetFillColor(kGreen);
   h_chB_highlight->SetFillStyle(3001);
   h_chB_highlight->Draw("same");
-  
+
   outputFile->cd();
   c_histoA->Write();
   c_histoB->Write();
-  
+
   h_chA->Write();
   h_chB->Write();
   t_chA->Write();
