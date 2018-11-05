@@ -267,13 +267,13 @@ void extractCTR(T* histo,double fitPercMin,double fitPercMax, int divs, double t
       histo->Fit(f1,"Q","",fitGaussMin,fitGaussMax);
       if(realCTR)
       {
-        res[0] = sqrt(2)*sqrt(pow((2.355*f1->GetParameter(2)),2)-pow(tagFwhm,2));
-        res[1] = sqrt(2)*sqrt(pow((4.29*f1->GetParameter(2)),2)-pow((tagFwhm/2.355)*4.29,2));
-        
+        res[0] = 2.355*f1->GetParameter(2);
+        res[1] = 4.29*f1->GetParameter(2);
       }
       else
       {
-
+        res[0] = sqrt(2)*sqrt(pow((2.355*f1->GetParameter(2)),2)-pow(tagFwhm,2));
+        res[1] = sqrt(2)*sqrt(pow((4.29*f1->GetParameter(2)),2)-pow((tagFwhm/2.355)*4.29,2));
       }
 
 
@@ -775,7 +775,7 @@ int main(int argc, char** argv)
 //   c_hA->cd();
   TSpectrum *spectrumCH2;
   spectrumCH2 = new TSpectrum(5);
-  Int_t peaksN = spectrumCH2->Search(h_chA,1,"",0.5);
+  Int_t peaksN = spectrumCH2->Search(h_chA,1,"goff",0.5);
   Double_t *PeaksCH2  = spectrumCH2->GetPositionX();
   Double_t *PeaksYCH2 = spectrumCH2->GetPositionY();
   float maxPeak = 0.0;
@@ -810,7 +810,7 @@ int main(int argc, char** argv)
 //   c_hB->cd();
   TSpectrum *spectrumCH9;
   spectrumCH9 = new TSpectrum(5);
-  Int_t peaksN9 = spectrumCH9->Search(h_chB,1,"",0.5);
+  Int_t peaksN9 = spectrumCH9->Search(h_chB,1,"goff",0.5);
   Double_t *PeaksCH9  = spectrumCH9->GetPositionX();
   Double_t *PeaksYCH9 = spectrumCH9->GetPositionY();
   float maxPeak9 = 0.0;
@@ -867,7 +867,7 @@ int main(int argc, char** argv)
 
   TSpectrum *spectrumCTR;
   spectrumCTR = new TSpectrum(5);
-  Int_t peaksNCTR = spectrumCTR->Search(ctr,1,"",0.5);
+  Int_t peaksNCTR = spectrumCTR->Search(ctr,1,"goff",0.5);
   Double_t *PeaksCTR  = spectrumCTR->GetPositionX();
   Double_t *PeaksYCTR = spectrumCTR->GetPositionY();
   float maxPeakCTR = 0.0;
@@ -915,7 +915,7 @@ int main(int argc, char** argv)
 
   TSpectrum *spectrumCTR_corr;
   spectrumCTR_corr = new TSpectrum(5);
-  Int_t peaksNCTR_corr = spectrumCTR_corr->Search(ctrCorr,1,"",0.5);
+  Int_t peaksNCTR_corr = spectrumCTR_corr->Search(ctrCorr,1,"goff",0.5);
   Double_t *PeaksCTR_corr  = spectrumCTR_corr->GetPositionX();
   Double_t *PeaksYCTR_corr = spectrumCTR_corr->GetPositionY();
   float maxPeakCTR_corr = 0.0;
@@ -1103,7 +1103,7 @@ int main(int argc, char** argv)
     TH1D *projection = (TH1D*) peakAvsTime->ProjectionY(title,i+1,i+2);
     TSpectrum *spectrum_profile;
     spectrum_profile = new TSpectrum(5);
-    Int_t peaksN_profile = spectrum_profile->Search(projection,1,"",0.5);
+    Int_t peaksN_profile = spectrum_profile->Search(projection,1,"goff",0.5);
     Double_t *Peaks_profile  = spectrum_profile->GetPositionX();
     Double_t *PeaksY_profile = spectrum_profile->GetPositionY();
     float maxPeak_profile = 0.0;
@@ -1175,7 +1175,7 @@ int main(int argc, char** argv)
     TH1D *projection = (TH1D*) peakBvsTime->ProjectionY(title,i+1,i+2);
     TSpectrum *spectrum_profile;
     spectrum_profile = new TSpectrum(5);
-    Int_t peaksN_profile = spectrum_profile->Search(projection,1,"",0.5);
+    Int_t peaksN_profile = spectrum_profile->Search(projection,1,"goff",0.5);
     Double_t *Peaks_profile  = spectrum_profile->GetPositionX();
     Double_t *PeaksY_profile = spectrum_profile->GetPositionY();
     float maxPeak_profile = 0.0;
@@ -1243,7 +1243,7 @@ int main(int argc, char** argv)
     TH1D *projection = (TH1D*) tAvsTime->ProjectionY(title,i+1,i+2);
     TSpectrum *spectrum_profile;
     spectrum_profile = new TSpectrum(5);
-    Int_t peaksN_profile = spectrum_profile->Search(projection,1,"",0.5);
+    Int_t peaksN_profile = spectrum_profile->Search(projection,1,"goff",0.5);
     Double_t *Peaks_profile  = spectrum_profile->GetPositionX();
     Double_t *PeaksY_profile = spectrum_profile->GetPositionY();
     float minPeak_profile = INFINITY;
@@ -1315,7 +1315,7 @@ int main(int argc, char** argv)
     TH1D *projection = (TH1D*) tBvsTime->ProjectionY(title,i+1,i+2);
     TSpectrum *spectrum_profile;
     spectrum_profile = new TSpectrum(5);
-    Int_t peaksN_profile = spectrum_profile->Search(projection,1,"",0.5);
+    Int_t peaksN_profile = spectrum_profile->Search(projection,1,"goff",0.5);
     Double_t *Peaks_profile  = spectrum_profile->GetPositionX();
     Double_t *PeaksY_profile = spectrum_profile->GetPositionY();
     float minPeak_profile = INFINITY;
