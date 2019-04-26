@@ -1,5 +1,5 @@
 // compile with
-// g++ -o calculate_ctr calculate_ctr.cpp `root-config --cflags --glibs` -Wl,--no-as-needed -lHist -lCore -lMathCore -lTree -lTreePlayer -lgsl -lgslcblas -lSpectrum
+// g++ -o ./bin/calculate_ctr calculate_ctr.cpp `root-config --cflags --glibs` -Wl,--no-as-needed -lHist -lCore -lMathCore -lTree -lTreePlayer -lgsl -lgslcblas -lSpectrum
 
 // small program to extract timing calibration and data
 
@@ -385,7 +385,7 @@ int main (int argc, char** argv)
     else if (c == 0 && optionIndex == 12){
       h0max = atof((char *)optarg);
     }
-    
+
     else if (c == 0 && optionIndex == 13){
       h0low = atof((char *)optarg);
     }
@@ -404,8 +404,8 @@ int main (int argc, char** argv)
 			return 1;
 		}
   }
-  
-  // check and limit h0up and h1up to the histogram max 
+
+  // check and limit h0up and h1up to the histogram max
   if(h0up > h0max)
   {
     h0up = h0max;

@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3.6
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 '''
@@ -42,7 +42,7 @@ class Component:
             if(value>=84):
                 value = 83.999
                 #NOTE : why O.O01 and not 0 ? If important, store it in the conf file
-            # low cutoff not needed here!    
+            # low cutoff not needed here!
             #else: # E,F,G,H
             #    if(value<=19):
             #        value = 19.001

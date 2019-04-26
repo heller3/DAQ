@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3.6
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 
@@ -12,7 +12,7 @@ from subprocess import Popen, PIPE, STDOUT
 import shutil
 
 from panel import *
-import runAcquisition 
+import runAcquisition
 
 def main(argv):
 
@@ -20,7 +20,7 @@ def main(argv):
     #voltage_list = ['56.5','57.5']
     slice_time = '2100'
 
-    
+
     #thisdict = {
       #'config' : 'file.txt',
       #'time'   : '1000',
@@ -61,7 +61,7 @@ def scan_step(component,v_set,slice_time):
     wait_for_rump_up(component,v_set,100)
     string_out = 'Acquiring for '+ slice_time + ' seconds at ' + v_set + 'V...'
     print(string_out)
-    
+
     thisdict = {
       'config' : 'config_two_febs.txt',
       'time'   : slice_time,
