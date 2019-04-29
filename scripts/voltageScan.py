@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/local/bin/python3.6
 # -*- coding: utf-8 -*-
 
 
@@ -12,15 +12,14 @@ from subprocess import Popen, PIPE, STDOUT
 import shutil
 
 from panel import *
-import runAcquisition
+import runAcquisition 
 
 def main(argv):
 
-    voltage_list = ['54','54.5','55','55.5','56','56.5','57','57.5','58','58.5','59']
-    #voltage_list = ['56.5','57.5']
-    slice_time = '2100'
+    voltage_list = ['54','54.2','54.4','54.6','54.8','55','55.2','55.4','55.6','55.8','56','56.2','56.4','56.6','56.8','57','57.2','57.4','57.6','57.8','58','58.2','58.4','58.6']
+    slice_time = '3600'
 
-
+    
     #thisdict = {
       #'config' : 'file.txt',
       #'time'   : '1000',
@@ -61,7 +60,7 @@ def scan_step(component,v_set,slice_time):
     wait_for_rump_up(component,v_set,100)
     string_out = 'Acquiring for '+ slice_time + ' seconds at ' + v_set + 'V...'
     print(string_out)
-
+    
     thisdict = {
       'config' : 'config_two_febs.txt',
       'time'   : slice_time,

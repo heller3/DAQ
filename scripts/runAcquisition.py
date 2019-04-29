@@ -78,16 +78,29 @@ def main(args):
    counter = 0
 
    #make RootTTrees folder
-   finalFolder = "Run_" + folder + "/RootTTrees"
+   # check if root folder exists. if it's there, change folder name
+   cwd = os.getcwd()
+   print(cwd + "/")
+   baseDir = "Run_" + folder
+   while(os.path.isdir(baseDir)):
+     baseDir = baseDir + "_2"
+   #if(os.path.isdir("Run_" + folder)):
+     #folder = folder +"_2"
+   
+   finalFolder = baseDir + "/RootTTrees"
    os.makedirs(finalFolder)
 
    #copy config file into main acq folder
-   copyConfiFile = "Run_" + folder + "/" + config
+   copyConfiFile = baseDir + "/" + config
    shutil.copyfile(config, copyConfiFile)
 
 
    run = 1
-   t_folder = folder + "/" + str(counter)
+   # compose the folder name to pass to readout. it's the baseDir minus the first 4 characters (i.e. Run_)
+   t_folder = baseDir[4:]
+   outFolder = t_folder
+   t_folder = t_folder + "/" + str(counter)
+   print(t_folder)
    cmd = ['readout','-c', config,'-t', time, '-f', t_folder,'--start']
    returncode = subprocess.Popen(cmd).wait()
      #print(child.returncode)
@@ -117,7 +130,7 @@ def main(args):
      f.write("--input2 Run_%s/binary742_1.dat " %t_folder)
      f.write(" && convertToRoot ")
      f.write("--input %s "   %eventsFile)
-     f.write("--output-folder Run_%s " %folder)
+     f.write("--output-folder Run_%s " %outFolder)
      f.write("--frame %d " %counter)
      f.write("--time %s " %startTime)
      if keep == '0':
@@ -137,7 +150,11 @@ def main(args):
 
      #start the next acq
      counter = counter + 1
-     t_folder = folder + "/" + str(counter)
+     t_folder = baseDir[4:]
+     
+     t_folder = t_folder + "/" + str(counter)
+     
+     #t_folder = folder + "/" + str(counter)
      cmd = ['readout','-c', config,'-t', time, '-f', t_folder,'--start']
      returncode = subprocess.Popen(cmd).wait()
 
@@ -162,7 +179,7 @@ def main(args):
    f.write("--input2 Run_%s/binary742_1.dat " %t_folder)
    f.write(" && convertToRoot ")
    f.write("--input %s "   %eventsFile)
-   f.write("--output-folder Run_%s " %folder)
+   f.write("--output-folder Run_%s " %outFolder)
    f.write("--frame %d " %counter)
    f.write("--time %s " %startTime)
    if keep == '0':

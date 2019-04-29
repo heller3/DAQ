@@ -30,7 +30,7 @@ initial_Voltage=19.001
 
 ser = serial.Serial(
 
-    port='/dev/ttyUSB0',
+    port='/dev/ttyUSB1',
     # port='/dev/ttyAMA0',
     baudrate = 115200,
     parity=serial.PARITY_NONE,

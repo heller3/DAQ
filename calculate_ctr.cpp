@@ -237,25 +237,31 @@ void fitWithEMG(TH1F* histo,float* res)
 }
 
 
-
-
-
 void usage()
 {
-  std::cout << "\t\t" << "[--folder] <path> [-i|--prefix] <file_prefix> [--calibration] <file1.root,file2.root,...> [OPTIONS]" << std::endl
-            << "\t\t\t" << "<path>                                             - path to input files folder - default = \"./\" " << std::endl
-            << "\t\t\t" << "<file_prefix>                                      - prefix of TTree files to analyze"   << std::endl
-            << "\t\t\t" << "<file1.root,file2.root,...>                        - csv list of calibration files"   << std::endl
-            << "\t\t" << "<output.root>                                      - output file name"   << std::endl
-            << "\t\t" << "--histoMin <value>                                 - lower limit of CTR spectra, in sec - default = -15e-9"  << std::endl
-            << "\t\t" << "--histoMax <value>                                 - upper limit of CTR spectra, in sec - default = 15e-9"  << std::endl
-            << "\t\t" << "--histoBins <value>                                - n of bins for CTR spectra - default = 500"  << std::endl
-            << "\t\t" << "--length <value>                                   - crystal length in mm, default = 15.0"  << std::endl
-            << "\t\t" << "--doiFraction <value>                              - fraction of DOI length towards which the time stamps are corrected (from 0 to 1)"  << std::endl
-            << "\t\t" << "                                                   - 0 = front of the crystal (DOI close to detector) "  << std::endl
-            << "\t\t" << "                                                   - 1 = back of the crystal (DOI far from detector) "  << std::endl
-            << "\t\t" << "--start-time                                       - acq time from which events are accepted [h]  - default = 0"  << std::endl
-            << "\t\t" << "--sliced                                           - if given, it's a slice acq                   - default = not given"  << std::endl
+  std::cout << " [--option] <value>" << std::endl
+            << "\t\t" << "--folder          - path to input file(s) folder                , default = ./"      << std::endl
+            << "\t\t" << "--prefix          - prefix of input file(s)                     , default = TTree"   << std::endl
+            << "\t\t" << "--output          - name of output files, no extension          , default = results" << std::endl
+            << "\t\t" << "--refCh           - channel number for reference                , default = 62"      << std::endl
+            << "\t\t" << "--detCh           - csv list of channel number(s) for SiPM(s)   , default = \"\""    << std::endl
+            << "\t\t" << "--voltage         - bias voltage value                          , default = 58.0"    << std::endl
+            << "\t\t" << "--refFWHM         - FWHM contribution to CTR of reference [s]   , default = 90e-12"  << std::endl   
+            << "\t\t" << "--bins            - bins in 1D histograms                       , default = 1000"    << std::endl
+            << "\t\t" << "--h0max           - max for reference charge spectrum           , default = 60000"   << std::endl
+            << "\t\t" << "--h1max           - max for SiPM(s) charge spectrum             , default = 500000"  << std::endl            
+            << "\t\t" << "--sigmac          - numb of sigmas for charge cut               , default = 2"       << std::endl
+            << "\t\t" << "--sigmat          - numb of sigmas for time cut                 , default = 20"      << std::endl            
+            << "\t\t" << "--h0low           - min for peak search in ref charge spectrum  , default = 500"     << std::endl
+            << "\t\t" << "--h0up            - max for peak search in ref charge spectrum  , default = 350000"  << std::endl
+            << "\t\t" << "--h1low           - min for peak search in ref charge spectrum  , default = 500"     << std::endl
+            << "\t\t" << "--h1up            - max for peak search in ref charge spectrum  , default = 350000"  << std::endl
+            << "\t\t" << "--dtBins          - bins in ctr time histograms                 , default = 1000 "   << std::endl
+            << "\t\t" << "--dtMin           - min of ctr time histograms                  , default = -2e-9"   << std::endl
+            << "\t\t" << "--dtMax           - max of ctr time histograms                  , default = 2e-9"    << std::endl
+            << "\t\t" << "--function        - fitting function for time alignment "                            << std::endl
+            << "\t\t" << "                  - 0 = gaussian (default) "                                         << std::endl
+            << "\t\t" << "                  - 1 = exponentially modified gaussian "                            << std::endl
             << std::endl;
 }
 
@@ -268,7 +274,7 @@ int main (int argc, char** argv)
   // check if there are args, otherwise print the usage info
   if(argc < 2)
   {
-    std::cout << argv[0];
+    std::cout << "Usage: " << argv[0];
     usage();
     return 1;
   }
@@ -293,7 +299,7 @@ int main (int argc, char** argv)
   float voltage   = 58.0;
   std::string output    = "results";
   int fitFunction = 1;
-  int bins1D_t = 200;
+  int bins1D_t = 1000;
   float h0max = 60000;
   float h1max = 500000;
   float h0low = 500;
@@ -304,6 +310,9 @@ int main (int argc, char** argv)
   std::string detCh = "";
   float time_cut_sigmas = 20.0;
   float charge_cut_sigmas = 2.0;
+  int dtBins = 1000;
+  float dtMin = -2e-9;
+  float dtMax = 2e-9;
 
 
   //--------------------------------//
@@ -328,25 +337,28 @@ int main (int argc, char** argv)
       { "h0up", required_argument, 0, 0 },
       { "h1low", required_argument, 0, 0 },
       { "h1up", required_argument, 0, 0 },
+      { "dtBins", required_argument, 0, 0 },
+      { "dtMin", required_argument, 0, 0 },
+      { "dtMax", required_argument, 0, 0 },
       { NULL, 0, 0, 0 }
-	};
+        };
 
   while(1) {
-		int optionIndex = 0;
-		int c = getopt_long(argc, argv, "f:p:o", longOptions, &optionIndex);
-		if (c == -1) {
-			break;
-		}
-		if (c == 'f'){
-			folder = (char *)optarg;
+                int optionIndex = 0;
+                int c = getopt_long(argc, argv, "f:p:o", longOptions, &optionIndex);
+                if (c == -1) {
+                        break;
+                }
+                if (c == 'f'){
+                        folder = (char *)optarg;
     }
     else if (c == 'p'){
-			prefix = (char *)optarg;
+                        prefix = (char *)optarg;
     }
     else if (c == 'o'){
-			output = (char *)optarg;
+                        output = (char *)optarg;
     }
-		else if (c == 0 && optionIndex == 0){
+                else if (c == 0 && optionIndex == 0){
       folder = (char *)optarg;
     }
     else if (c == 0 && optionIndex == 1){
@@ -385,7 +397,7 @@ int main (int argc, char** argv)
     else if (c == 0 && optionIndex == 12){
       h0max = atof((char *)optarg);
     }
-
+    
     else if (c == 0 && optionIndex == 13){
       h0low = atof((char *)optarg);
     }
@@ -398,14 +410,23 @@ int main (int argc, char** argv)
     else if (c == 0 && optionIndex == 16){
       h1up = atof((char *)optarg);
     }
+    else if (c == 0 && optionIndex == 17){
+      dtBins = atoi((char *)optarg);
+    }
+    else if (c == 0 && optionIndex == 18){
+      dtMin = atof((char *)optarg);
+    }
+    else if (c == 0 && optionIndex == 19){
+      dtMax = atof((char *)optarg);
+    }
     else {
-      std::cout	<< "Usage: " << argv[0] << std::endl;
-			usage();
-			return 1;
-		}
+      std::cout << "Usage: " << argv[0];
+                        usage();
+                        return 1;
+                }
   }
-
-  // check and limit h0up and h1up to the histogram max
+  
+  // check and limit h0up and h1up to the histogram max 
   if(h0up > h0max)
   {
     h0up = h0max;
@@ -488,7 +509,7 @@ int main (int argc, char** argv)
     std::cout << "ERROR! Some input files do not exists! Aborting." << std::endl;
     std::cout << "See program usage below..." << std::endl;
     std::cout << std::endl;
-    std::cout << argv[0];
+    std::cout << "Usage: " << argv[0];
     usage();
     return 1;
   }
@@ -664,7 +685,7 @@ int main (int argc, char** argv)
 
 
   // some histograms
-  TH1F* h_t_base = new TH1F("h_t_base", "H(t_ref - avg); t_ref - t_avg; Number of Events", 500,-2e-9, 2e-9);
+  TH1F* h_t_base = new TH1F("h_t_base", "H(t_ref - avg); t_ref - t_avg; Number of Events", dtBins,dtMin,dtMax);
   std::vector<TH2F*> g;
   std::vector<TH1F*> h_det_uc;
 
@@ -844,7 +865,7 @@ int main (int argc, char** argv)
   }
 
 
-  TH1F* h_t_corrected = new TH1F("h_t_corrected", "Time histogram corrected by amplitude walk; Number of Events", 500,-2e-9, 2e-9);
+  TH1F* h_t_corrected = new TH1F("h_t_corrected", "Time histogram corrected by amplitude walk; Number of Events", dtBins,dtMin,dtMax);
   std::vector<TH2F*> gc;
   std::vector<TH1F*> h_det_c;
 
@@ -1008,8 +1029,8 @@ int main (int argc, char** argv)
   }
 
 
-  TH1F* hshift_avg = new TH1F("hshift_avg", "Average Shifted Timing Histogram; Number of Events", 500,-2e-9, 2e-9);
-  TH1F* h_weighted_avg = new TH1F("h_weighted_avg", "Average Weighted Timing Histogram; Number of Events", 500,-2e-9, 2e-9);
+  TH1F* hshift_avg = new TH1F("hshift_avg", "Average Shifted Timing Histogram; Number of Events", dtBins,dtMin,dtMax);
+  TH1F* h_weighted_avg = new TH1F("h_weighted_avg", "Average Weighted Timing Histogram; Number of Events", dtBins,dtMin,dtMax);
   std::vector<TH1F*> h_shift;
 
 
