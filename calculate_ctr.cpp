@@ -274,7 +274,7 @@ int main (int argc, char** argv)
   // check if there are args, otherwise print the usage info
   if(argc < 2)
   {
-    std::cout << "Usage: " << argv[0];
+    std::cout << "USAGE: " << argv[0];
     usage();
     return 1;
   }
