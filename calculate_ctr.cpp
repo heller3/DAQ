@@ -166,6 +166,50 @@ void searchPeak(TH1F* h0,float lRange,float uRange,float perc, float* res)
   // h0->GetXaxis()->SetRangeUser(originalMin, originalMax);
 }
 
+
+void searchRightPeak(TH1F* h0,float lRange,float uRange,float perc, float* res)
+{
+  // float originalMin = h0->GetXaxis()->GetXmin();
+  // float originalMax = h0->GetXaxis()->GetXmax();
+  h0->GetXaxis()->SetRangeUser(lRange, uRange);
+  TSpectrum *spectrum0 = new TSpectrum(5);
+  Int_t n0 = spectrum0->Search(h0, 1, "", 0.5);
+  Double_t *xvals0 = spectrum0->GetPositionX();
+  Double_t *yvals0 = spectrum0->GetPositionY();
+
+  float maxPeak = 0.0;
+  int xmaxID = 0;
+  for (int peakCounter = 0 ; peakCounter < n0 ; peakCounter++ )
+  {
+    if(xvals0[peakCounter] > maxPeak)
+    {
+      maxPeak = yvals0[peakCounter];
+      xmaxID = peakCounter;
+    }
+  }
+  float xmax0 = xvals0[xmaxID];
+  float FWHM0 = fabs(perc*xmax0);
+  float lb0 = xmax0 - FWHM0;
+  float ub0 = xmax0 + FWHM0;
+  // std::cout << lb0 << " " << ub0 << std::endl;
+
+  TF1 *fgaus0 = new TF1("fgaus0", "gaus", lb0, ub0);
+  h0->Fit(fgaus0, "Q", "", lb0, ub0 );
+  float mean0 = fgaus0->GetParameter(1);
+  float sigma0 = fgaus0->GetParameter(2);
+  // fit the charge histograms again, using upper and lower bounds determined by the mean and standard dev. of the gaussian fit
+  float lb0_g = mean0 - sigma0;
+  float ub0_g = mean0 + 2.0*sigma0;
+  TF1* fgaus0_g = new TF1("fgaus0_g", "gaus", lb0_g, ub0_g);
+  h0->Fit(fgaus0_g, "Q", "", lb0_g, ub0_g );
+  //redifine mean0 etc (otherwise why are you refitting them?)
+  mean0 = fgaus0_g->GetParameter(1);
+  sigma0 = fgaus0_g->GetParameter(2);
+  res[0] = mean0;
+  res[1] = sigma0;
+  // h0->GetXaxis()->SetRangeUser(originalMin, originalMax);
+}
+
 // standard EMG inverted. x -> -x, then mu will be -mu
 Double_t emginv_function(Double_t *x, Double_t *par)
 {
@@ -299,8 +343,8 @@ int main (int argc, char** argv)
   float voltage   = 58.0;
   std::string output    = "results";
   int fitFunction = 1;
-  int bins1D_t = 1000;
-  float h0max = 60000;
+  int bins1D_t = 400;
+  float h0max = 30000;
   float h1max = 500000;
   float h0low = 500;
   float h0up = 350000;
@@ -309,10 +353,15 @@ int main (int argc, char** argv)
   int refCh = 62;
   std::string detCh = "";
   float time_cut_sigmas = 20.0;
-  float charge_cut_sigmas = 2.0;
+  float charge_cut_sigmas = 3.0;
   int dtBins = 1000;
   float dtMin = -2e-9;
   float dtMax = 2e-9;
+  
+  float fraction_h1low_on_h1max = 0.05;
+  float fraction_h0low_on_h0max = 0.05;
+  bool h0low_given = false;
+  bool h1low_given = false;
 
 
   //--------------------------------//
@@ -400,12 +449,17 @@ int main (int argc, char** argv)
     
     else if (c == 0 && optionIndex == 13){
       h0low = atof((char *)optarg);
+      // then set to fix fraction_h0low_on_h0max 
+      h0low_given = true;
+      
     }
     else if (c == 0 && optionIndex == 14){
       h0up = atof((char *)optarg);
     }
     else if (c == 0 && optionIndex == 15){
       h1low = atof((char *)optarg);
+       // then set to fix fraction_h0low_on_h0max 
+      h1low_given = true;
     }
     else if (c == 0 && optionIndex == 16){
       h1up = atof((char *)optarg);
@@ -425,6 +479,17 @@ int main (int argc, char** argv)
                         return 1;
                 }
   }
+  
+  //check if h0low and h1low were given by user 
+  if(!h0low_given)
+  {
+    h0low = h0max * fraction_h0low_on_h0max;
+  }
+  if(!h1low_given)
+  {
+    h1low = h1max * fraction_h1low_on_h1max;
+  }
+  
   
   // check and limit h0up and h1up to the histogram max 
   if(h0up > h0max)
@@ -470,7 +535,15 @@ int main (int argc, char** argv)
   std::cout << "Bias voltage of detector(s) [V]                = " << voltage    << std::endl;
   std::cout << "Type of functon for 1D fits                    = " << fString    << std::endl;
   std::cout << "Bins in 1D histograms                          = " << bins1D_t    << std::endl;
+  
+  std::cout << "Maximum of ref charge plot                     = " << h0max    << std::endl;
   std::cout << "Maximum of sum charge plot                     = " << h1max    << std::endl;
+  
+  std::cout << "Minimum of peak search in ref charge plot      = " << h0low    << std::endl;
+  std::cout << "Maximum of peak search in ref charge plot      = " << h0up    << std::endl;
+  std::cout << "Minimum of peak search in sum charge plot      = " << h1low    << std::endl;
+  std::cout << "Maximum of peak search in sum charge plot      = " << h1up    << std::endl;
+  
   std::cout << "Reference detector channel                     = " << refCh    << std::endl;
   std::cout << "Number of detector channel(s)                  = " << listDetectorChannels.size()    << std::endl;
   std::cout << "Detector channel(s)                            = " << detCh    << std::endl;
@@ -577,8 +650,70 @@ int main (int argc, char** argv)
   }
 
 
+  long long int counter = 0;
+  // tree->SetNotify(formulasAnalysis);
+  long long int nevent = tree->GetEntries();
+  std::cout << "Total number of events in input files = " << nevent << std::endl;
+  long int goodEventsAnalysis = 0;
+  long int counterAnalysis = 0;
+  
+  // quick loop to get max of fisrt histograms
+  
+  TH1F* h0_temp = new TH1F("h0_temp","h0_temp",1000,0, 500000);
+  // one for "sum" detector
+  TH1F* h1_temp = new TH1F("h1_temp","h1_temp",1000,0, 500000);
+  for (long long int i=0;i<nevent;i++)
+  {
 
-  // FIRST LOOP - basic histograms
+    tree->GetEvent(i);              //read complete accepted event in memory
+
+    h0_temp->Fill(charge[refCh]);
+//     h_t_ref->Fill(timeStamp[refCh]);
+
+    float sumCharge = 0;
+    for(unsigned int iDet = 0 ; iDet < listDetectorChannels.size(); iDet++)
+    {
+      sumCharge += charge[listDetectorChannels[iDet]];
+//       h_t_det[iDet]->Fill(timeStamp[listDetectorChannels[iDet]]);
+    }
+    h1_temp->Fill(sumCharge);
+
+    counter++;
+    int perc = ((100*counter)/nevent); //should strictly have not decimal part, written like this...
+    if( (perc % 10) == 0 )
+    {
+      std::cout << "\r";
+      std::cout << perc << "% done... ";
+      //std::cout << counter << std::endl;
+    }
+  }
+  std::cout << std::endl;
+  
+  //peak searching
+  float peak_results[2];
+  searchRightPeak(h0_temp,0,500000,0.03,peak_results);
+  float mean0_temp = peak_results[0];
+  float sigma0_temp = peak_results[1];
+
+  searchRightPeak(h1_temp,0,500000,0.03,peak_results);
+  float mean1_temp = peak_results[0];
+  float sigma1_temp = peak_results[1];
+  
+  //set h0max etc
+  h0max = mean0_temp *2.0;
+  h1max = mean1_temp *2.0;
+  h0low = 0.05*h0max;
+  h0up = h0max;
+  h1low = 0.05*h1max;
+  h1up = h1max;
+
+  std::cout << h0max << " " << h0low << " " << h0up << std::endl;
+  std::cout << h1max << " " << h1low << " " << h1up << std::endl;
+  
+  
+  
+  // LOOP - basic histograms
+  counter = 0;
   // prepare histograms
   // one for ref detector
   TH1F* h0 = new TH1F("h0","h0",1000,0, h0max);
@@ -618,12 +753,7 @@ int main (int argc, char** argv)
     h_t_det_highlight.push_back(temp_h2);
   }
 
-  long long int counter = 0;
-  // tree->SetNotify(formulasAnalysis);
-  long long int nevent = tree->GetEntries();
-  std::cout << "Total number of events in input files = " << nevent << std::endl;
-  long int goodEventsAnalysis = 0;
-  long int counterAnalysis = 0;
+  
   for(unsigned int iDet = 0 ; iDet < listDetectorChannels.size(); iDet++)
   {
     std::cout <<listDetectorChannels[iDet] << " ";
@@ -659,7 +789,7 @@ int main (int argc, char** argv)
 
 
   //peak searching
-  float peak_results[2];
+//   float peak_results[2];
   searchPeak(h0,h0low,h0up,0.03,peak_results);
   float mean0 = peak_results[0];
   float sigma0 = peak_results[1];
@@ -1176,7 +1306,7 @@ int main (int argc, char** argv)
   std::cout << "CTR (no correction)                                     = "  << CTR_uc << std::endl;
   std::cout << "CTR (amplitude correction)                              = "  << CTR_c << std::endl;
   std::cout << "CTR (amplitude correction + shift)                      = "  << CTR_shift << std::endl;
-  std::cout << "CTR (amplitude correction + shift + weighted average)   = "  << CTR_c << std::endl;
+  std::cout << "CTR (amplitude correction + shift + weighted average)   = "  << CTR_w << std::endl;
 
 
   std::cout << "Saving results..." << std::endl;
@@ -1213,10 +1343,18 @@ int main (int argc, char** argv)
   TFile *outputFile = new TFile(outputFileName_root.c_str(),"RECREATE");
   outputFile->cd();
 
-
+  h_t_base->Write();
+  h_t_corrected->Write();
+  hshift_avg->Write();
+  h_weighted_avg->Write();
+  
   c_h0->Write();
   c_h1->Write();
   c_h_t_ref->Write();
+  for(unsigned int i = 0 ; i < h_t_det.size(); i++)
+  { 
+    c_h_t_det[i]->Write();
+  }
 
   h0->Write();
   h0_highlight->Write();
@@ -1229,16 +1367,9 @@ int main (int argc, char** argv)
   h_t_ref_highlight->Write();
   for(unsigned int i = 0 ; i < h_t_det.size(); i++)
   {
-    c_h_t_det[i]->Write();
     h_t_det[i]->Write();
     h_t_det_highlight[i]->Write();
   }
-
-
-  h_t_base->Write();
-  h_t_corrected->Write();
-  hshift_avg->Write();
-  h_weighted_avg->Write();
 
   for(unsigned int iDet = 0 ; iDet < listDetectorChannels.size(); iDet++)
   {

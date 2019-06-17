@@ -12,8 +12,44 @@ from subprocess import Popen, PIPE, STDOUT
 import shutil
 import configparser
 
+import minimalmodbus
+
 from panel import *
 import runAcquisition 
+
+
+def set_jog_step(motor1,motor2):
+    #motor2.write_register(1025,375,functioncode=16)
+    motor1.write_register(4169,375,functioncode=16)
+    motor2.write_register(4169,375,functioncode=16)
+
+
+def jog_both_arms(motor1,motor2):
+    time.sleep(0.1)
+
+    #set to STOP both arms, just to be sure
+    motor1.write_register(125,32,functioncode=16)
+    motor2.write_register(125,32,functioncode=16)
+    time.sleep(0.1)
+   
+    #set to + and - JOG both arms
+    motor1.write_register(125,4096,functioncode=16)
+    motor2.write_register(125,8192,functioncode=16)
+    
+    #wait for both arms to stop
+    time.sleep(0.5)
+    # start acquisition
+    #time.sleep(0.2)
+    #set to STOP both arms
+    motor1.write_register(125,32,functioncode=16)
+    motor2.write_register(125,32,functioncode=16)
+    #time.sleep(0.2)
+    
+
+def stop_both_arms(motor1,motor2):
+    motor1.write_register(125,32,functioncode=16)
+    motor2.write_register(125,32,functioncode=16)
+
 
 def main(args):
   
@@ -21,9 +57,11 @@ def main(args):
     if args['config'] is None:
       print('No config file provided')
       sys.exit(1)
+      
+    useMotors = False
     
     # read config file
-    #check if it is there
+    # check if it is there
     cfgFile = args['config']
     if os.path.isfile(cfgFile) is False:
       print('Config file not found')
@@ -71,12 +109,26 @@ def main(args):
     component.send_value(0,"10")   # set voltage point on chip to 10V
     component.switch_on_hv()  # enable hv
     
+    # configure motors
+    if useMotors:
+      motor1 = minimalmodbus.Instrument('/dev/ttyUSB1', 1) # port name, slave address (in decimal)
+      motor2 = minimalmodbus.Instrument('/dev/ttyUSB1', 2) # port name, slave address (in decimal)
+      motor1.serial.baudrate = 9600
+      motor1.serial.bytesize = 8
+      motor1.serial.parity   = serial.PARITY_EVEN
+      motor1.serial.stopbits = 1
+      motor1.serial.timeout  = 0.1
+      motor1.mode = minimalmodbus.MODE_RTU
+      set_jog_step(motor1,motor2)
+    
     ## MAIN LOOP on acqs
     for a in range(0,MAX_ACQS):
       section_name = 'ACQ_' + str(a)
       if config.has_section(section_name):
         
         # SET VOLTAGES FOR THIS ACQ
+        if useMotors:
+          print ('-----> ANGLE ', a)
         print('Setting acq at voltage ', config[section_name]['V_FEB_0'])
         time.sleep(0.10)
         #for now only set FEB 0 (FEB 1 is still on keythley)
@@ -97,7 +149,15 @@ def main(args):
         }
         # run and wait...
         scan_step(config[section_name]['time'],config[section_name]['V_FEB_0'],config[section_name]['V_FEB_1'],thisdict)
-    
+        
+        # rotate arms
+        if useMotors:
+          jog_both_arms(motor1,motor2)
+          time.sleep(1)
+        
+    # stop arms
+    if useMotors:
+      stop_both_arms(motor1,motor2)
     
     # END: exit but first switch off HV
     component.switch_off_hv()
@@ -107,7 +167,7 @@ def main(args):
     print('Done, goodbye!')
 
 
-def scan_step(v0,v1,t,thisdict):
+def scan_step(t,v0,v1,thisdict):
     
     string_out = 'Acquiring for ' + t + ' seconds at V_FEB_0 = ' + v0 + 'V and  V_FEB_0 = ' + v1  
     print(string_out)
