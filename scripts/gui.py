@@ -58,7 +58,7 @@ class Row:
     def send_entry(self):
         # the index in row_labels = the row index - 1 (because the first one is only text)
 ##        output = self.component.send_value(self.row_index - 1, self.entry.get())
-        output = self.component.send_value(self.row_index - 1, self.entry.get())
+        output = self.component.send_value(0, self.entry.get())
 
         # refresh the display with the value that has been sent
         if(output): # if output == None we shouldn't refresh
@@ -80,9 +80,11 @@ class Row:
 
 class MainWindow:
 
-    def __init__(self, component):
+    def __init__(self, component1, component2):
         self.master = Tk()
-        self.component = component
+        self.component1 = component1
+        self.component2 = component2
+        # self.component = [component1,component2]
         self.rows = []
         self.TimerInterval = 500
         # self.continuous_display()
@@ -95,13 +97,18 @@ class MainWindow:
         # Titles
         Label(self.master,text=VOLTAGE_TITLE).grid(row=i,column=1)
         # Rows
-
-        for label in labels :
-            i+=1
-            #TODO: initialize the valu
-            row = Row(self, self.component, label, i)
-            self.rows.append(row)
-            row.show_row()
+        row1 = Row(self, self.component1, labels[0], 1)
+        row2 = Row(self, self.component2, labels[1], 2)
+        self.rows.append(row1)
+        self.rows.append(row2)
+        row1.show_row()
+        row2.show_row()
+        # for label in labels :
+        #     i+=1
+        #     #TODO: initialize the value
+        #     row = Row(self, self.component[i-1], label, i)
+        #     self.rows.append(row)
+        #     row.show_row()
 
         self.update_values() # update the values on the right
 
@@ -120,32 +127,42 @@ class MainWindow:
         # self.display = Button(self.master, text='Activate Display', command=lambda: self.continuous_display())
         # self.display.grid(row=13,column=1)
 
-        self.v_monitor_label = Label(self.master,text="Voltage")
-        self.v_monitor_label.grid(row=14,column=1)
+        #MONITOR
+        # FEB 1
+        self.v_monitor_label1 = Label(self.master,text="Voltage 1")
+        self.v_monitor_label1.grid(row=14,column=1)
+        self.v_monitor1 = Label(self.master,text='---')  # blank value on start
+        self.v_monitor1.grid(row=14,column=2)
+        self.i_monitor_label1 = Label(self.master,text="Current 1")
+        self.i_monitor_label1.grid(row=15,column=1)
+        self.i_monitor1 = Label(self.master,text='---')  # blank value on start
+        self.i_monitor1.grid(row=15,column=2)
+        # FEB 2
+        self.v_monitor_label2 = Label(self.master,text="Voltage 2")
+        self.v_monitor_label2.grid(row=16,column=1)
+        self.v_monitor2 = Label(self.master,text='---')  # blank value on start
+        self.v_monitor2.grid(row=16,column=2)
+        self.i_monitor_label2 = Label(self.master,text="Current 2")
+        self.i_monitor_label2.grid(row=17,column=1)
+        self.i_monitor2 = Label(self.master,text='---')  # blank value on start
+        self.i_monitor2.grid(row=17,column=2)
 
-        self.v_monitor = Label(self.master,text='---')  # blank value on start
-        self.v_monitor.grid(row=14,column=2)
-
-        self.i_monitor_label = Label(self.master,text="Current")
-        self.i_monitor_label.grid(row=15,column=1)
-
-        self.i_monitor = Label(self.master,text='---')  # blank value on start
-        self.i_monitor.grid(row=15,column=2)
-        
         self.init_comm()
-        self.set_low_v()
+        #self.set_low_v()
+        self.reset_values()
         self.continuous_display()
 
         self.master.mainloop()
 
     def update_values(self):
-        values = self.component.Voltage
+        values = [self.component1.Voltage,self.component2.Voltage]
         # zip is a function that allows to iterate both lists a the same time
         for row, value in zip(self.rows, values):
             row.update_value(value)
 
     def reset_values(self):
-        self.component.reset()
+        self.component1.reset()
+        self.component2.reset()
         self.update_values()
 
     def send_enabled_values(self):
@@ -155,31 +172,41 @@ class MainWindow:
                 row.send_entry()
 
     def switch_on_hv(self):
-        self.component.switch_on_hv()
+        self.component1.switch_on_hv()
+        self.component2.switch_on_hv()
 
     def switch_off_hv(self):
-        self.component.switch_off_hv()
-        self.component.send_value(0,"10")
-    
+        self.component1.switch_off_hv()
+        #self.component1.send_value(0,"10")
+        self.component2.switch_off_hv()
+        #self.component2.send_value(0,"10")
+
     def init_comm(self):
-        self.component.begin_com()
-        
-        
+        self.component1.begin_com()
+        self.component2.begin_com()
+
+
     def set_low_v(self):
-        self.component.send_value(0,"10")
+        self.component1.send_value(0,"10")
+        self.component2.send_value(0,"10")
 
     def continuous_display(self):
 
-        v_value = self.component.read_voltage()
-        i_value = self.component.read_current()
+        #v1
+        v_value1 = self.component1.read_voltage()
+        i_value1 = self.component1.read_current()
+        v_value2 = self.component2.read_voltage()
+        i_value2 = self.component2.read_current()
 
-        self.update_v_display(v_value)
-        self.update_i_display(i_value)
+        self.update_v_display(v_value1,v_value2)
+        self.update_i_display(i_value1,i_value2)
 
-        self.v_monitor.after(self.TimerInterval,self.continuous_display)
+        self.v_monitor1.after(self.TimerInterval,self.continuous_display)
 
-    def update_v_display(self, value):
-        self.v_monitor.configure(text=value)
+    def update_v_display(self, value1, value2):
+        self.v_monitor1.configure(text=value1)
+        self.v_monitor2.configure(text=value2)
 
-    def update_i_display(self, value):
-        self.i_monitor.configure(text=value)
+    def update_i_display(self, value1, value2):
+        self.i_monitor1.configure(text=value1)
+        self.i_monitor2.configure(text=value2)

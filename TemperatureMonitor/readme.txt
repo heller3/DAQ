@@ -2,11 +2,25 @@
 
 1) start temperature monitor from pi
 
-ssh pi-labo
-cd Monitor
-python readMonitor.py
+[connect to raspberry]
 
-start it in screen so you can logout
+ssh pi-labo
+
+[address is 128.141.196.54]
+
+[enter a screen session]
+
+screen -S monitor 
+
+[start monitor]
+
+cd Monitor
+./readMonitor.py
+
+[leave screen session without closing it]
+
+Ctrl-A Ctrl-D
+
 
 2) retrieve the temperaure file (.log) 
 

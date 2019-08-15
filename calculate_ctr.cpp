@@ -304,8 +304,8 @@ void usage()
             << "\t\t" << "--dtMin           - min of ctr time histograms                  , default = -2e-9"   << std::endl
             << "\t\t" << "--dtMax           - max of ctr time histograms                  , default = 2e-9"    << std::endl
             << "\t\t" << "--function        - fitting function for time alignment "                            << std::endl
-            << "\t\t" << "                  - 0 = gaussian (default) "                                         << std::endl
-            << "\t\t" << "                  - 1 = exponentially modified gaussian "                            << std::endl
+            << "\t\t" << "                  - 0 = gaussian "                                                   << std::endl
+            << "\t\t" << "                  - 1 = exponentially modified gaussian (default)"                   << std::endl
             << std::endl;
 }
 
@@ -827,7 +827,7 @@ int main (int argc, char** argv)
     g.push_back(temp_h2);
     sname.str("");
     sname << "Uncorrected t_ref - t" << listDetectorChannels[iDet];
-    TH1F* temp_h1 = new TH1F(sname.str().c_str(), sname.str().c_str(), bins1D_t,-2e-9, 2e-9);
+    TH1F* temp_h1 = new TH1F(sname.str().c_str(), sname.str().c_str(), bins1D_t,dtMin, dtMax);
     h_det_uc.push_back(temp_h1);
   }
 
@@ -1007,7 +1007,7 @@ int main (int argc, char** argv)
     gc.push_back(temp_h2);
     sname.str("");
     sname << "Corrected t_ref - t" << listDetectorChannels[iDet];
-    TH1F* temp_h1 = new TH1F(sname.str().c_str(), sname.str().c_str(), bins1D_t,-2e-9, 2e-9);
+    TH1F* temp_h1 = new TH1F(sname.str().c_str(), sname.str().c_str(), bins1D_t,dtMin, dtMax);
     h_det_c.push_back(temp_h1);
   }
 
@@ -1140,8 +1140,8 @@ int main (int argc, char** argv)
   {
     for(unsigned int iDet = 0 ; iDet < h_det_c.size(); iDet++)
     {
-      TF1 *fgaus_c = new TF1("fgaus_c", "gaus", -2e-9, 2e-9);
-      h_det_c[iDet]->Fit(fgaus_c, "Q", "", -2e-9, 2e-9 );
+      TF1 *fgaus_c = new TF1("fgaus_c", "gaus", dtMin, dtMax);
+      h_det_c[iDet]->Fit(fgaus_c, "Q", "", dtMin, dtMax );
       meanc.push_back(fgaus_c->GetParameter(1));
       sigmac.push_back(fgaus_c->GetParameter(2));
     }
@@ -1168,7 +1168,7 @@ int main (int argc, char** argv)
   {
     std::stringstream sname;
     sname << "Shifted t_ref - t_corr" << listDetectorChannels[iDet];
-    TH1F* temp_h1 = new TH1F(sname.str().c_str(), sname.str().c_str(), bins1D_t,-2e-9, 2e-9);
+    TH1F* temp_h1 = new TH1F(sname.str().c_str(), sname.str().c_str(), bins1D_t,dtMin, dtMax);
     h_shift.push_back(temp_h1);
   }
 
@@ -1281,25 +1281,25 @@ int main (int argc, char** argv)
 
 
 
-  TF1 *fgaust = new TF1("fgaust", "gaus", -2e-9, 2e-9);
+  TF1 *fgaust = new TF1("fgaust", "gaus", dtMin, dtMax);
   fgaust->SetParameter(1, h_t_base->GetMean());
   fgaust->SetParameter(2, h_t_base->GetRMS());
-  h_t_base->Fit(fgaust, "Q", "", -2e-9, 2e-9);
+  h_t_base->Fit(fgaust, "Q", "", dtMin, dtMax);
   float CTR_uc = sqrt(2) * sqrt(pow(2.355 * fgaust->GetParameter(2),2) - pow(ref,2));
 
   fgaust->SetParameter(1, h_t_corrected->GetMean());
   fgaust->SetParameter(2, h_t_corrected->GetRMS());
-  h_t_corrected->Fit(fgaust, "Q", "", -2e-9, 2e-9);
+  h_t_corrected->Fit(fgaust, "Q", "", dtMin, dtMax);
   float CTR_c = sqrt(2) * sqrt(pow(2.355 * fgaust->GetParameter(2),2) - pow(ref,2));
 
   fgaust->SetParameter(1, hshift_avg->GetMean());
   fgaust->SetParameter(2, hshift_avg->GetRMS());
-  hshift_avg->Fit(fgaust, "Q", "", -2e-9, 2e-9);
+  hshift_avg->Fit(fgaust, "Q", "", dtMin, dtMax);
   float CTR_shift = sqrt(2) * sqrt(pow(2.355 * fgaust->GetParameter(2),2) - pow(ref,2));
 
   fgaust->SetParameter(1, h_weighted_avg->GetMean());
   fgaust->SetParameter(2, h_weighted_avg->GetRMS());
-  h_weighted_avg->Fit(fgaust, "Q", "", -2e-9, 2e-9);
+  h_weighted_avg->Fit(fgaust, "Q", "", dtMin, dtMax);
   float CTR_w = sqrt(2) * sqrt(pow(2.355 * fgaust->GetParameter(2),2) - pow(ref,2));
 
 
