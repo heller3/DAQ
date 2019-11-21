@@ -409,6 +409,10 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       if (strcmp(str, "OutputWaves742") == 0) 
         fscanf(parameters_file, "%d", &params->OutputWaves742);
       
+      if (strcmp(str, "CalculateAmplitude") == 0) 
+        fscanf(parameters_file, "%d", &params->CalculateAmplitude);
+      
+      
       if (strcmp(str, "ConnectionLinkNum") == 0) 
         fscanf(parameters_file, "%d", &params->ConnectionLinkNum);
       if (strcmp(str, "ConnectionConetNode") == 0) 
@@ -745,6 +749,25 @@ int setup_parameters(BoardParameters *params, char *fname) {
   set_default_parameters(params);
   
   ret = load_configuration_from_file(fname, params);
+  
+  // check if AcqMode and CalculateAmplitude make sense 
+  // CalculateAmplitude can be done only if AcqMode is MIXED, otherwise 
+  // there is not data of the pulse exported by the board 
+  if(params->CalculateAmplitude)
+  {
+    printf("\n------------------------------------------------\n");
+    if(params->AcqMode == ACQMODE_LIST)
+    {
+      printf("WARNING: Impossible to calculate amplitude in LIST mode. Switch the key \"AcquisitionMode\" to \"MIXED\" in configuration file if you want to make amplitude calculation possible. \nDisabling amplitude calculation now...\n");  
+      params->CalculateAmplitude = 0;
+    }
+    else 
+    {
+      printf("Amplitude calculation is activated. \n");
+    }
+    printf("------------------------------------------------\n\n");
+    
+  }
   return ret;
 }
 
@@ -920,6 +943,30 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, CAEN_DGTZ
 }
 
 
+
+// calculate amplitude 
+// TODO implement different polarities
+uint16_t calculate_amplitude(uint16_t* data, int length,int baseLineSamples)
+{
+  unsigned int i;
+  float max = -FLT_MAX;
+  float baseline = 0.0;
+  
+  for (i=0; i < baseLineSamples; i++) {
+    baseline += ((float)data[i])/((float) baseLineSamples);  
+  }
+  
+  for (i = 0; i < length; i++) 
+  {
+    if(data[i]  > max)
+    {
+      max = data[i];
+    }
+  }
+    
+  uint16_t amplitude = (uint16_t) (max - (baseline)) ;
+  return amplitude;
+}
 
 
 
@@ -1375,6 +1422,26 @@ int run_acquisition() {
         if ((Charge < HISTO_NBIN) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT) && (gEvent[i][j].Overrange == 0))
           gHisto[i][Charge]++;
         
+        if(gParams.CalculateAmplitude)
+        {
+          // decode the waveform 
+          _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+          uint16_t amplitude = calculate_amplitude(gWaveforms->Trace1,gWaveforms->Ns,64); // FIXME change hardcoded 64 into variable
+          if(gEvent[i][j].Overrange == 0)  
+          {
+            Data740.Amplitude[i] = amplitude;
+          }
+          else 
+          {    
+            Data740.Amplitude[i] = 0;
+          }
+          // calculate the amplitude
+        }
+        else 
+        {
+          Data740.Amplitude[i] = 0;
+        }
+        
         
         if(gParams.EnablePlots740)
         {
@@ -1398,7 +1465,15 @@ int run_acquisition() {
               /* Plot Waveforms (if enabled) */ 
               if (/*(i==gActiveChannel) && */(gParams.AcqMode == ACQMODE_MIXED) /*&& (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT)*/) 
               {
-                _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+                if(gParams.CalculateAmplitude)
+                {
+                  // no need to decode the waveform, it has been done already 
+                  // _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+                }
+                else 
+                {
+                  _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+                }
                 gPlotDataFile = fopen("PlotWave.txt", "w");
                 
                 for(k=0; k<gWaveforms->Ns; k++) {
@@ -1423,24 +1498,24 @@ int run_acquisition() {
         
         if(gParams.WriteData) // prepare write data of this channel on output if enabled
         {
-          if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
-          {
-            // gEvent[i][j].Overrange ==
+//           if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+//           {
+//             // gEvent[i][j].Overrange ==
+//             
+//             if(gEvent[i][j].Overrange == 0)  
+//             {
+//               fprintf(sStamps740,"%u ",(gEvent[i][j].Charge & 0xFFFF));
+//             }
+//             else 
+//             {
+//               fprintf(sStamps740,"%u ",0);
+//               
+//             }
+//             
+//           }
             
-            if(gEvent[i][j].Overrange == 0)  
-            {
-              fprintf(sStamps740,"%u ",(gEvent[i][j].Charge & 0xFFFF));
-            }
-            else 
-            {
-              fprintf(sStamps740,"%u ",0);
-              
-            }
-            
-          }
-            
-          if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
-          {
+//           if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+//           {
             // gEvent[i][j].Overrange ==
             //                            0x0 = the charge value is negative
             //                            0xFFFF = the charge has exceeded the upper limit
@@ -1450,11 +1525,10 @@ int run_acquisition() {
             }
             else 
             {
-              
               Data740.Charge[i] = 0;
             }
             
-          }
+//           }
             
         }
       }
@@ -1464,6 +1538,17 @@ int run_acquisition() {
         events740written++;
         if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
         {
+          for (i=0; i < gEquippedChannels; ++i) //run on all channels
+          {
+            fprintf(sStamps740,"%u ",Data740.Charge[i]);
+          }
+          if(gParams.CalculateAmplitude)
+          {
+            for (i=0; i < gEquippedChannels; ++i) //run on all channels
+            {
+              fprintf(sStamps740,"%u ",Data740.Amplitude[i]);
+            }
+          }
           fprintf(sStamps740,"\n");
         }
           

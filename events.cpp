@@ -79,6 +79,7 @@ typedef struct
 {
   double TTT;                                 /*Trigger time tag of the event, i.e. of the entire board (we always operate with common external trigger) */
   uint16_t Charge[64];                        /*All 64 channels for now*/
+  uint16_t Amplitude[64];                        /*All 64 channels for now*/
 } Data740_t;
 
 typedef struct
@@ -93,6 +94,7 @@ struct EventFormat_t
   double TTT742_0;                       /*Trigger time tag of the event according to 742_0*/
   double TTT742_1;                       /*Trigger time tag of the event according to 742_1*/
   uint16_t Charge[64];                      /*Integrated charge for all the channels of 740 digitizer*/
+  uint16_t Amplitude[64];                   /*Amplitude of all channels of 740 digitizer*/
   double PulseEdgeTime[64];                 /*PulseEdgeTime for each channel in both timing digitizers*/
 } __attribute__((__packed__));
 
@@ -145,7 +147,7 @@ int main(int argc,char **argv)
 
   static struct option longOptions[] =
   {
-			{ "input0", required_argument, 0, 0 },
+      { "input0", required_argument, 0, 0 },
       { "input1", required_argument, 0, 0 },
       { "input2", required_argument, 0, 0 },
       { "delta0", required_argument, 0, 0 },
@@ -317,6 +319,7 @@ int main(int argc,char **argv)
       for(int j = 0 ; j < 64 ; j++)
       {
         event.Charge[j] = ev740.Charge[j];  // put the charges
+        event.Amplitude[j] = ev740.Amplitude[j];  // put the charges
       }
       for(int j = 0 ; j < 32 ; j++)
       {

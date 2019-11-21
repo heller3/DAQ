@@ -10,8 +10,6 @@
 #include <float.h> 
 /* Globals */
 
-//////////////////////modified apolesel////////////////////////
-
 int GetNextEvent[2]={1,1};
 int MatchingEvents=0;
 
@@ -43,9 +41,6 @@ BoardParameters   gParams;
 Stats        gAcqStats  ;
 
 FILE *       gPlotDataFile;
-// FILE *       gListFiles[MAX_CHANNELS];
-// FILE *       timeTags;
-// FILE *       tttFile;
 FILE *       sStamps740;
 FILE **      sStamps742;
 
@@ -68,8 +63,8 @@ int          gAnalogTrace = 0;
 int          gRestart     = 0;
 int          gAcquisitionBufferAllocated = 0;
 
-char *       gAcqBuffer      = NULL;
-char *       gEventPtr      = NULL;
+char *       gAcqBuffer          = NULL;
+char *       gEventPtr           = NULL;
 FILE *       gHistPlotFile       = NULL;
 FILE *       gWavePlotFile       = NULL;
 
@@ -78,6 +73,9 @@ CAEN_DGTZ_X742_EVENT_t* Event742[2];
 char* buffer742[2];
 uint32_t buffer742Size[2];
 DataCorrection_t* Table;
+
+// data correcitons for 742?
+CAEN_DGTZ_DRS4Correction_t **X742Tables;
 
 uint64_t** Nroll;
 double **TTT, **PrevTTT;
@@ -198,7 +196,7 @@ void TimeOfDay(char *actual_time)
   time_t currentTime;
   time(&currentTime);
   timeinfo = localtime(&currentTime);
-  strftime (actual_time,20,"%Y_%d_%m_%H_%M_%S",timeinfo);
+  strftime (actual_time,20,"%Y_%m_%d_%H_%M_%S",timeinfo);
 }
 
 #else  /* Windows */
@@ -234,7 +232,7 @@ void clear_screen()
  * * Set default parameters for the acquisition
  */
 void set_default_parameters(BoardParameters *params) {
-  int i;
+  int i,j,k;
   
   params->WriteData         = 1;             /*by default write output to data files*/
   params->OutputMode        = OUTPUTMODE_BINARY;
@@ -282,7 +280,38 @@ void set_default_parameters(BoardParameters *params) {
       params->registerWritesCounter = 0;
     params->NumOfV1742            = 0;  // by default 0
     
-    params->v1742_TriggerEdge     = 0;  // by default 0  
+    for(i = 0; i < 8 ; i++) {
+      for(j = 0; j < 4 ; j++) 
+      {
+        params->v1742_pairTimingChannels[i][j] = 0;   
+        for(k = 0; k < 8; k++)
+        {
+          params->v1742_Pair_WavePulsePolarity[i][j][k]        = 0; 
+          params->v1742_Single_WavePulsePolarity[i][j][k]       = 0; 
+          params->v1742_Pair_FixedThreshold[i][j][k]            = 0;
+          params->v1742_Single_FixedThreshold[i][j][k]            = 0;
+        }
+      }
+    }
+   
+    params->v1742_Pair_BaselineStart            = 0; 
+    params->v1742_Pair_BaselineSamples          = 0; 
+    params->v1742_Pair_DeltaSquareStartPoint    = 0; 
+    params->v1742_Pair_LengthSecondBaseline     = 0; 
+    params->v1742_Pair_RegressionSamplesHalfNum = 0;
+    
+    
+    
+    
+    params->v1742_Single_BaselineStart            = 0; 
+    params->v1742_Single_BaselineSamples          = 0; 
+    params->v1742_Single_DeltaSquareStartPoint    = 0; 
+    params->v1742_Single_LengthSecondBaseline     = 0; 
+    params->v1742_Single_RegressionSamplesHalfNum = 0;
+    
+    
+    
+    params->v1742_TriggerPolarity = 0;  // by default 0  
     params->v1742_RecordLength    = 0;  // by default 0
     params->v1742_MatchingWindow  = 0;  // by default 0
     params->v1742_IOlevel         = 0;  // by default 0
@@ -293,18 +322,26 @@ void set_default_parameters(BoardParameters *params) {
     //V1742
     
     for(i = 0; i < 8 ; i++) {
-      params->v1742_ConnectionType[i]       = 0;
-      params->v1742_LinkNum[i]              = 0;
-      params->v1742_ConetNode[i]            = 0;
-      params->v1742_BaseAddress[i]          = 0;
-      params->v1742_FastTriggerThreshold[i] = 0;       
-      params->v1742_FastTriggerOffset[i]    = 0;          
-      params->v1742_DCoffset[i]             = 0;                   
-      params->v1742_ChannelThreshold[i]     = 0;           
-      params->v1742_TRThreshold[i]          = 0;                
-      params->v1742_ChannelPulseEdge[i]     = 0;           
-      params->v1742_PostTrigger[i]          = 0;
-      params->v1742_RunDelay[i]             = 0;                       
+      params->v1742_ConnectionType[i]              = 0;
+      params->v1742_LinkNum[i]                     = 0;
+      params->v1742_ConetNode[i]                   = 0;
+      params->v1742_BaseAddress[i]                 = 0;
+      params->v1742_FastTriggerThreshold[i]        = 0;       
+      params->v1742_FastTriggerOffset[i]           = 0;          
+      params->v1742_DCoffset[i]                    = 0;                   
+      params->v1742_ChannelThreshold[i]            = 0;           
+      params->v1742_TRThreshold[i]                 = 0;                
+      params->v1742_ChannelPulseEdge[i]            = 0;           
+      params->v1742_PostTrigger[i]                 = 0;
+      params->v1742_RunDelay[i]                    = 0;
+      params->v1742_BaselineStart[i]               = 0;
+      params->v1742_BaselineSamples[i]             = 0;
+      params->v1742_DeltaSquareStartPoint[i]       = 0;
+      params->v1742_LengthSecondBaseline[i]        = 0;
+      params->v1742_RegressionSamplesHalfNum[i]    = 0;
+      params->v1742_FixedThreshold[i]              = 0;
+      params->v1742_TRpulsePolarity[i]             = CAEN_DGTZ_PulsePolarityNegative;
+      params->v1742_WavePulsePolarity[i]           = CAEN_DGTZ_PulsePolarityNegative;
       
     }
     
@@ -328,14 +365,14 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
   parameters_file = fopen(fname, "r");
   if (parameters_file != NULL) {
     while (!feof(parameters_file)) {
-      char str[100];
+      char str[300];
       fscanf(parameters_file, "%s", str);
       if (str[0] == '#') {
-        fgets(str, 100, parameters_file);
+        fgets(str, 300, parameters_file);
         continue;
       }
       
-      //       printf("%s\n",str);
+//             printf("%s\n",str);
       
       if (strcmp(str, "WriteData") == 0) 
         fscanf(parameters_file, "%d", &params->WriteData);
@@ -371,6 +408,10 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       
       if (strcmp(str, "OutputWaves742") == 0) 
         fscanf(parameters_file, "%d", &params->OutputWaves742);
+      
+      if (strcmp(str, "CalculateAmplitude") == 0) 
+        fscanf(parameters_file, "%d", &params->CalculateAmplitude);
+      
       
       if (strcmp(str, "ConnectionLinkNum") == 0) 
         fscanf(parameters_file, "%d", &params->ConnectionLinkNum);
@@ -452,8 +493,8 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       if (strcmp(str, "NumOfV1742") == 0) {
         fscanf(parameters_file, "%d", &params->NumOfV1742);
       }
-      if (strcmp(str, "v1742_TriggerEdge") == 0) {
-        fscanf(parameters_file, "%d", &params->v1742_TriggerEdge);
+      if (strcmp(str, "v1742_TriggerPolarity") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_TriggerPolarity);
       }
       if (strcmp(str, "v1742_RecordLength") == 0) {
         fscanf(parameters_file, "%d", &params->v1742_RecordLength);
@@ -475,8 +516,97 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
       }      
       if (strcmp(str, "v1742_EnableLog") == 0) {
         fscanf(parameters_file, "%d", &params->v1742_EnableLog);
-      }      
+      }
       
+      
+      //params->v1742_pairTimingChannels = 0;     
+      //params->v1742_Pair_WavePulsePolarity        = 0; 
+      //params->v1742_Pair_BaselineStart            = 0; 
+      //params->v1742_Pair_BaselineSamples          = 0; 
+      //params->v1742_Pair_DeltaSquareStartPoint    = 0; 
+      //params->v1742_Pair_LengthSecondBaseline     = 0; 
+      //params->v1742_Pair_RegressionSamplesHalfNum = 0;
+      
+      if (strcmp(str, "v1742_PairTimingChannels") == 0) {
+        int board;
+        int gr;
+        fscanf(parameters_file, "%d", &board);
+        fscanf(parameters_file, "%d", &gr);
+        fscanf(parameters_file, "%d", &params->v1742_pairTimingChannels[board][gr]);
+//         if(params->v1742_pairTimingChannels)
+//         {
+        printf("Timing Channels Pairing [board|group|choice] = %d %d %d\n",board,gr,params->v1742_pairTimingChannels[board][gr]);
+//         }
+      }
+      if (strcmp(str, "v1742_Pair_WavePulsePolarity") == 0) {
+        int board;
+        int gr;
+        int ch;
+        fscanf(parameters_file, "%d", &board);
+        fscanf(parameters_file, "%d", &gr);
+        fscanf(parameters_file, "%d", &ch);
+        fscanf(parameters_file, "%d", &params->v1742_Pair_WavePulsePolarity[board][gr][ch]);
+      }
+      if (strcmp(str, "v1742_Pair_BaselineStart") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Pair_BaselineStart);
+      }
+      if (strcmp(str, "v1742_Pair_BaselineSamples") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Pair_BaselineSamples);
+      }
+      if (strcmp(str, "v1742_Pair_DeltaSquareStartPoint") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Pair_DeltaSquareStartPoint);
+      }
+      if (strcmp(str, "v1742_Pair_LengthSecondBaseline") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Pair_LengthSecondBaseline);
+      }
+      if (strcmp(str, "v1742_Pair_RegressionSamplesHalfNum") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Pair_RegressionSamplesHalfNum);
+      }
+      
+      if (strcmp(str, "v1742_Pair_FixedThreshold") == 0) {
+        int board;
+        int gr;
+        int ch;
+        fscanf(parameters_file, "%d", &board);
+        fscanf(parameters_file, "%d", &gr);
+        fscanf(parameters_file, "%d", &ch);
+        fscanf(parameters_file, "%d", &params->v1742_Pair_FixedThreshold[board][gr][ch]);
+      }
+      
+      
+      if (strcmp(str, "v1742_Single_WavePulsePolarity") == 0) {
+        int board;
+        int gr;
+        int ch;
+        fscanf(parameters_file, "%d", &board);
+        fscanf(parameters_file, "%d", &gr);
+        fscanf(parameters_file, "%d", &ch);
+        fscanf(parameters_file, "%d", &params->v1742_Single_WavePulsePolarity[board][gr][ch]);
+      }
+      if (strcmp(str, "v1742_Single_BaselineStart") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_BaselineStart);
+      }
+      if (strcmp(str, "v1742_Single_BaselineSamples") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_BaselineSamples);
+      }
+      if (strcmp(str, "v1742_Single_DeltaSquareStartPoint") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_DeltaSquareStartPoint);
+      }
+      if (strcmp(str, "v1742_Single_LengthSecondBaseline") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_LengthSecondBaseline);
+      }
+      if (strcmp(str, "v1742_Single_RegressionSamplesHalfNum") == 0) {
+        fscanf(parameters_file, "%d", &params->v1742_Single_RegressionSamplesHalfNum);
+      }
+      if (strcmp(str, "v1742_Single_FixedThreshold") == 0) {
+        int board;
+        int gr;
+        int ch;
+        fscanf(parameters_file, "%d", &board);
+        fscanf(parameters_file, "%d", &gr);
+        fscanf(parameters_file, "%d", &ch);
+        fscanf(parameters_file, "%d", &params->v1742_Single_FixedThreshold[board][gr][ch]);
+      }
       
       
       if (strcmp(str, "v1742_ConnectionType") == 0) {
@@ -549,6 +679,54 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
         fscanf(parameters_file, "%d", &params->v1742_RunDelay[digi]);
       }
       
+      if (strcmp(str, "v1742_BaselineStart") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_BaselineStart[digi]);
+      }
+      
+      if (strcmp(str, "v1742_BaselineSamples") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_BaselineSamples[digi]);
+      }
+      
+      if (strcmp(str, "v1742_DeltaSquareStartPoint") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_DeltaSquareStartPoint[digi]);
+      }
+      
+      if (strcmp(str, "v1742_LengthSecondBaseline") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_LengthSecondBaseline[digi]);
+      }
+      
+      if (strcmp(str, "v1742_RegressionSamplesHalfNum") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_RegressionSamplesHalfNum[digi]);
+      }
+      
+      if (strcmp(str, "v1742_FixedThreshold") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_FixedThreshold[digi]);
+      }
+      
+      if (strcmp(str, "v1742_TRpulsePolarity") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_TRpulsePolarity[digi]);
+      }
+      
+      if (strcmp(str, "v1742_WavePulsePolarity") == 0) {
+        int digi;
+        fscanf(parameters_file, "%d", &digi);
+        fscanf(parameters_file, "%d", &params->v1742_WavePulsePolarity[digi]);
+      }
+      
       //generic writes
       if (strcmp(str, "RegisterWrite") == 0) {
         fscanf(parameters_file, "%d", &params->RegisterWriteBoard[params->registerWritesCounter]);
@@ -571,77 +749,164 @@ int setup_parameters(BoardParameters *params, char *fname) {
   set_default_parameters(params);
   
   ret = load_configuration_from_file(fname, params);
+  
+  // check if AcqMode and CalculateAmplitude make sense 
+  // CalculateAmplitude can be done only if AcqMode is MIXED, otherwise 
+  // there is not data of the pulse exported by the board 
+  if(params->CalculateAmplitude)
+  {
+    printf("\n------------------------------------------------\n");
+    if(params->AcqMode == ACQMODE_LIST)
+    {
+      printf("WARNING: Impossible to calculate amplitude in LIST mode. Switch the key \"AcquisitionMode\" to \"MIXED\" in configuration file if you want to make amplitude calculation possible. \nDisabling amplitude calculation now...\n");  
+      params->CalculateAmplitude = 0;
+    }
+    else 
+    {
+      printf("Amplitude calculation is activated. \n");
+    }
+    printf("------------------------------------------------\n\n");
+    
+  }
   return ret;
 }
 
 
 // ASSUMING NIM PULSE for trigger and negative pulse for nino, I.E. negative pulses on both trigger and signal
-double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart,int WaveType)
+double interpolateWithMultiplePoints(float* data, unsigned int length, CAEN_DGTZ_PulsePolarity_t polarity, int Tstart,int baseLineSamples, int deltaSquareStartPoint, int lengthSecondBaseline, int samplesNum, int fixedThreshold,float* res,double timesBase,double cutoffBaseline)
 {
-  // WaveType = 0   -> Pulse wave
-  // WaveType = 1   -> Trigger wave
+  // data                    -> array of data samples
+  // length                  -> number of samples in data 
+  // polarity                -> positive or negative polarity, can be CAEN_DGTZ_PulsePolarityPositive or CAEN_DGTZ_PulsePolarityNegative
+  // Tstart                  -> sample from which baseline computation starts
+  // baseLineSamples         -> number of samples used to compute baseline
+  // deltaSquareStartPoint   -> distance in samples from squareStartPoint to begin of range where secondBaseline is computed (squareStartPoint is computed in this function, see below)
+  // lengthSecondBaseline    -> number of samples used to compute second baseline
+  // samplesNum              -> number of samples used to compute linear regression of wave rise/fall
+  // fixedThreshold          -> fixed distance (in adc ch) from baseline to calculate crosspoint
+  // res                     -> array of results to write data for gnuplot lines
+  // timesBase                -> minimum distance from baseline to accept a pulse, espressed in multiples of the baseline sigma
   
   unsigned int i,j;
   double crosspoint = -1.0;
-  
-  //find min and max of this wave
-  float min = FLT_MAX;
-  float max = -FLT_MAX;
-  for (i=0; i < length; i++) {
-    if(data[i] < min ) min = data[i];
-    if(data[i] > max ) max = data[i];
-  }
-  
-  //set the flex point to 50% vertical swing
-  //we compute a distance of 50%
-//   float halfDistance = fabs(min-max) / 2.0;
-  
-//   if(halfDistance < 300.0 ) return crosspoint;
-  
-  // first find the baseline for this wave
-  int baseLineSamples = 300; 
   double baseline = 0.0;
-  for (i=(int)(Tstart); i < baseLineSamples; ++i) {
+  float minBaseline = FLT_MAX;
+  float maxBaseline = -FLT_MAX;
+  double sigma = 0;
+  //mean calculation
+  for (i=(int)(Tstart); i < baseLineSamples; i++) {
     baseline += ((double)data[i])/((double) baseLineSamples);
+//     rms += pow((double)data[i],2);
+//     if(data[i] < minBaseline ) minBaseline = data[i];
+//     if(data[i] > maxBaseline ) maxBaseline = data[i];
+  }
+  //rms calculation
+  for (i=(int)(Tstart); i < baseLineSamples; i++) {
+//     baseline += ((double)data[i])/((double) baseLineSamples);
+    sigma += pow((double)data[i] - baseline,2); 
+//     if(data[i] < minBaseline ) minBaseline = data[i];
+//     if(data[i] > maxBaseline ) maxBaseline = data[i];
+  }
+  sigma = fabs( sqrt( sigma / ( (double) baseLineSamples) ) );
+  float widthBaseline = sigma;
+//   printf("%f\t%f\n",rms,widthBaseline );
+  
+  if(widthBaseline > cutoffBaseline) return -1;
+
+  int squareStartPoint = 0;
+//   int squareEndPoint = length-1;
+  int foundStart = 0;
+//   int foundEnd = 0;
+  double secondBaseline = 0;
+//   double timesBase = 2.0;
+  
+  //look for start of fall or rise of the pulse
+  for (i=(int)(Tstart); i < length-1; i++) {
+
+
+    if ((polarity == CAEN_DGTZ_PulsePolarityNegative))
+    {
+      if(!foundStart)
+      {
+        if(data[i+1] < (baseline - fabs( timesBase*widthBaseline ) ) )
+        {
+          squareStartPoint = i;
+          foundStart = 1;
+        }
+      }
+    }
+
+    if ((polarity == CAEN_DGTZ_PulsePolarityPositive))
+    {
+      if(!foundStart)
+      {
+        if(data[i+1] > (baseline + fabs( timesBase*widthBaseline ) ) )
+        {
+          squareStartPoint = i;
+          foundStart = 1;
+        }
+      }
+    }
+
+    if(foundStart)
+    {
+      break;
+    }
+
+  }
+
+  if(!foundStart) return -1;
+  
+  double thresholdReal;
+  
+  if(fixedThreshold == 0) // if fixedThreshold has not been set (default = 0), look for a threshold
+  {
+    int startSecondBaseline = squareStartPoint + deltaSquareStartPoint; //  circa 800
+    int endSecondBaseline = startSecondBaseline + lengthSecondBaseline; //  circa 850
+  
+    for (i=startSecondBaseline; i < endSecondBaseline; i++) 
+    {
+      secondBaseline += ((double)data[i])/((double) (endSecondBaseline - startSecondBaseline)); // i.e. 50
+    }
+    thresholdReal = (baseline + secondBaseline) / 2.0;
+  }
+  else // fixedThreshold has been set, set the thresholdReal value
+  {
+//     printf("Using fixed th\n");
+    if((polarity == CAEN_DGTZ_PulsePolarityNegative))
+    {
+      thresholdReal = baseline - fixedThreshold;
+    }
+    else 
+    {
+      thresholdReal = baseline + fixedThreshold;
+    } 
   }
   
-  //find the pulse beging and end, i.e. when the signal crosses a value that is more than  
-  
-//   printf("Baseline = %f\n",baseline);
-  //then re-define the threshold as a distance 1100 from baseline
-  //not general implementation, works well only for identical signals of this peculiar amplitude 
-  //double thresholdReal = (double) threshold;
-  
-//   printf("%f\n",halfDistance);
-//   halfDistance = 700.0;
-  double distanceToFlexPoint;
-  if(WaveType == 0)
-    distanceToFlexPoint = 800;
-  if(WaveType == 1)
-    distanceToFlexPoint = 650;
-  double thresholdReal = baseline - distanceToFlexPoint;
-  
-  int samplesNum = 7; // N = 3
-  //now take +/- N bins and calculate the regression lines 
-  float slope = 0; 
-  float intercept = 0;
-  float sumx =0;
-  float sumy =0;
-  float sumxy=0;
-  float sumx2=0;
+//   printf("Th real = %f\n",thresholdReal );
+
+//   double thresholdReal = (baseline + secondBaseline) / 2.0;
+//   int samplesNum = 4; // N = 3
+  //now take +/- N bins and calculate the regression lines
+  float slope = 0.0;
+  float intercept = 0.0;
+  float sumx =0.0;
+  float sumy =0.0;
+  float sumxy=0.0;
+  float sumx2=0.0;
   int n = samplesNum * 2;
-//   for(j = centerBin[0] - samplesNum; j < centerBin[0] + samplesNum; j++) 
-//   { 
-//     sumx += (float) j;
-//     sumy += wave0[j];
-//     sumxy += j*wave0[j];
-//     sumx2 += j*j;
-//   }
-//   slope[0] =  (n*sumxy - sumx*sumy) / (n*sumx2 - sumx*sumx);
-//   intercept[0] = (sumy - slope[0] * sumx) / (n);
+//   int crossSample = -1;
+  
+  res[0] = baseline;
+  res[1] = secondBaseline;
+  res[2] = thresholdReal;
+
   for (i=(int)(Tstart); i < length-1; ++i) {
-    if ((edge == CAEN_DGTZ_TriggerOnFallingEdge) && (data[i] >= thresholdReal) && (data[i+1] < thresholdReal)) {
-      for(j = i - samplesNum; j < i + samplesNum; j++) {
+    if ((polarity == CAEN_DGTZ_PulsePolarityNegative) && (data[i] >= thresholdReal) && (data[i+1] < thresholdReal)) 
+    {
+//       crossSample = i;
+      for(j = i - samplesNum; j < i + samplesNum; j++) 
+      {
         sumx += (float) j;
         sumy += data[j];
         sumxy += j*data[j];
@@ -650,11 +915,16 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, int thres
       slope =  (n*sumxy - sumx*sumy) / (n*sumx2 - sumx*sumx);
       intercept = (sumy - slope * sumx) / (n);
       crosspoint = (thresholdReal - intercept) / slope;
+      res[3] = slope;
+      res[4] = intercept;
       //crosspoint = i + ((double)(data[i] - threshold)/(double)(data[i]-data[i+1]));
       break;
     }
-    if ((edge == CAEN_DGTZ_TriggerOnRisingEdge) && (data[i] <= thresholdReal) && (data[i+1] > thresholdReal)) {
-      for(j = i - samplesNum; j < i + samplesNum; j++) {
+    if ((polarity == CAEN_DGTZ_PulsePolarityPositive) && (data[i] <= thresholdReal) && (data[i+1] > thresholdReal)) 
+    {
+//       crossSample = i;
+      for(j = i - samplesNum; j < i + samplesNum; j++) 
+      {
         sumx += (float) j;
         sumy += data[j];
         sumxy += j*data[j];
@@ -663,16 +933,42 @@ double interpolateWithMultiplePoints(float* data, unsigned int length, int thres
       slope =  (n*sumxy - sumx*sumy) / (n*sumx2 - sumx*sumx);
       intercept = (sumy - slope * sumx) / (n);
       crosspoint = (thresholdReal - intercept) / slope;
+      res[3] = slope;
+      res[4] = intercept;
       //crosspoint = i + ((double)(threshold - data[i])/(double)(data[i+1]-data[i])) ;
       break;
     }
   }
-  
-  
   return crosspoint;
 }
 
 
+
+// calculate amplitude 
+// TODO implement different polarities
+uint16_t calculate_amplitude(uint16_t* data, int length,int baseLineSamples)
+{
+  unsigned int i;
+//   uint16_t max = 0;
+  float max = -FLT_MAX;
+//   uint16_t min = USHRT_MAX;
+  float baseline = 0.0;
+  
+  for (i=0; i < baseLineSamples; i++) {
+    baseline += ((float)data[i])/((float) baseLineSamples);  
+  }
+  
+  for (i = 0; i < length; i++) 
+  {
+    if(data[i]  > max)
+    {
+      max = data[i];
+    }
+  }
+    
+  uint16_t amplitude = (uint16_t) (max - (baseline)) ;
+  return amplitude;
+}
 
 
 
@@ -733,7 +1029,21 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
 //     }
     printf("%f GHz\n\n",1.0/Ts);
     
-    if (ret = LoadCorrectionTables(tHandle[i], &Table[i], 0, params->v1742_DRS4Frequency))
+    //previous correction table loading data 
+//     if (ret = LoadCorrectionTables(tHandle[i], &Table[i], 0, params->v1742_DRS4Frequency))
+//     {
+//       printf("Error loading data correction tables\n");      
+//       return -1;
+//     }
+//     printf("Correction Tables Loaded!\n");
+//     if ((ret = CAEN_DGTZ_EnableDRS4Correction(tHandle[i])) != CAEN_DGTZ_Success)
+//     {
+//       printf("Error loading data correction tables\n");      
+//       return -1;
+//     }
+//     printf("Correction Tables enabled!\n\n");
+    
+    if (ret = CAEN_DGTZ_LoadDRS4CorrectionData(tHandle[i], params->v1742_DRS4Frequency))
     {
       printf("Error loading data correction tables\n");      
       return -1;
@@ -745,6 +1055,7 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
       return -1;
     }
     printf("Correction Tables enabled!\n\n");
+    
     ret |= CAEN_DGTZ_SetRecordLength(tHandle[i], params->v1742_RecordLength); 
     ret |= CAEN_DGTZ_SetPostTriggerSize(tHandle[i], params->v1742_PostTrigger[i]);
     ret |= CAEN_DGTZ_SetIOLevel(tHandle[i], params->v1742_IOlevel);
@@ -756,7 +1067,7 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
     {
       ret |= CAEN_DGTZ_SetGroupFastTriggerThreshold(tHandle[i], gr, params->v1742_FastTriggerThreshold[i]);
       ret |= CAEN_DGTZ_SetGroupFastTriggerDCOffset(tHandle[i], gr, params->v1742_FastTriggerOffset[i]);
-      ret |= CAEN_DGTZ_SetTriggerPolarity(tHandle[i],gr,params->v1742_TriggerEdge);
+      ret |= CAEN_DGTZ_SetTriggerPolarity(tHandle[i],gr,params->v1742_TriggerPolarity);
     }
     ret |= CAEN_DGTZ_SetFastTriggerMode(tHandle[i],CAEN_DGTZ_TRGMODE_ACQ_ONLY);
     ret |= CAEN_DGTZ_SetFastTriggerDigitizing(tHandle[i],CAEN_DGTZ_ENABLE);
@@ -1054,7 +1365,7 @@ int run_acquisition() {
   }
   gLoops += 1;
   if (ret) {
-    printf("Readout Error\n");
+    printf("Readout Error, ret = %d \n",ret);
     return -1;        
   }   
   
@@ -1100,15 +1411,38 @@ int run_acquisition() {
       {
         
         gEvCnt[i]++;
-        uint32_t Charge;       
+        uint16_t Charge;       
 	// HISTO_NBIN is 4096
 	// gEvent[i][j].Charge is from 0 to 65536 (uint16_t)
 	// so rebinning means dividing charge by 2^4
+        // this is ONLY for the histogram visualization
+        // the charge exported to binary files is the original one (gEvent[i][j].Charge)
         Charge = ( (gEvent[i][j].Charge  >> 4) & 0xFFFF);  /* rebin charge to 4Kchannels */
+//         Charge = ( (gEvent[i][j].Charge ) & 0xFFFF);
         
         /*Update energy histogram*/
         if ((Charge < HISTO_NBIN) && (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT) && (gEvent[i][j].Overrange == 0))
           gHisto[i][Charge]++;
+        
+        if(gParams.CalculateAmplitude)
+        {
+          // decode the waveform 
+          _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+          uint16_t amplitude = calculate_amplitude(gWaveforms->Trace1,gWaveforms->Ns,64); // FIXME change hardcoded 64 into variable
+          if(gEvent[i][j].Overrange == 0)  
+          {
+            Data740.Amplitude[i] = amplitude;
+          }
+          else 
+          {    
+            Data740.Amplitude[i] = 0;
+          }
+          // calculate the amplitude
+        }
+        else 
+        {
+          Data740.Amplitude[i] = 0;
+        }
         
         
         if(gParams.EnablePlots740)
@@ -1133,7 +1467,15 @@ int run_acquisition() {
               /* Plot Waveforms (if enabled) */ 
               if (/*(i==gActiveChannel) && */(gParams.AcqMode == ACQMODE_MIXED) /*&& (Charge >= CHARGE_LLD_CUT) && (Charge <= CHARGE_ULD_CUT)*/) 
               {
-                _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+                if(gParams.CalculateAmplitude)
+                {
+                  // no need to decode the waveform, it has been done already 
+                  // _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+                }
+                else 
+                {
+                  _CAEN_DGTZ_DecodeDPPWaveforms(&gEvent[i][j], gWaveforms);
+                }
                 gPlotDataFile = fopen("PlotWave.txt", "w");
                 
                 for(k=0; k<gWaveforms->Ns; k++) {
@@ -1158,10 +1500,38 @@ int run_acquisition() {
         
         if(gParams.WriteData) // prepare write data of this channel on output if enabled
         {
-          if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
-            fprintf(sStamps740,"%u ",(gEvent[i][j].Charge & 0xFFFF));
-          if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
-            Data740.Charge[i] = (gEvent[i][j].Charge & 0xFFFF);
+//           if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+//           {
+//             // gEvent[i][j].Overrange ==
+//             
+//             if(gEvent[i][j].Overrange == 0)  
+//             {
+//               fprintf(sStamps740,"%u ",(gEvent[i][j].Charge & 0xFFFF));
+//             }
+//             else 
+//             {
+//               fprintf(sStamps740,"%u ",0);
+//               
+//             }
+//             
+//           }
+            
+//           if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+//           {
+            // gEvent[i][j].Overrange ==
+            //                            0x0 = the charge value is negative
+            //                            0xFFFF = the charge has exceeded the upper limit
+            if(gEvent[i][j].Overrange == 0)  
+            {
+              Data740.Charge[i] = (gEvent[i][j].Charge & 0xFFFF);
+            }
+            else 
+            {
+              Data740.Charge[i] = 0;
+            }
+            
+//           }
+            
         }
       }
       
@@ -1169,9 +1539,26 @@ int run_acquisition() {
       {
         events740written++;
         if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+        {
+          for (i=0; i < gEquippedChannels; ++i) //run on all channels
+          {
+            fprintf(sStamps740,"%u ",Data740.Charge[i]);
+          }
+          if(gParams.CalculateAmplitude)
+          {
+            for (i=0; i < gEquippedChannels; ++i) //run on all channels
+            {
+              fprintf(sStamps740,"%u ",Data740.Amplitude[i]);
+            }
+          }
           fprintf(sStamps740,"\n");
+        }
+          
         if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+        {
           fwrite(&Data740,sizeof(Data740_t),1,binOut740);
+        }
+          
       }
     }
     
@@ -1182,7 +1569,7 @@ int run_acquisition() {
     
   
   //analyze V1742 data 
-  for(i = 0 ; i < gParams.NumOfV1742 ; i++) 
+  for(i = 0 ; i < gParams.NumOfV1742 ; i++) // run on all timing digitizers
   {  
 //     int RefChannel =16; 
     ret |= CAEN_DGTZ_GetNumEvents(tHandle[i], buffer742[i], buffer742Size[i], &NumEvents742[i]);
@@ -1193,9 +1580,9 @@ int run_acquisition() {
     
     unsigned int j;
     Tt = 1000.0/(2.0*58.59375);
-    if(NumEvents742[i])
+    if(NumEvents742[i])                   // it there is at least one event
     {
-      for(j=0 ; j<NumEvents742[i] ; j++)
+      for(j=0 ; j<NumEvents742[i] ; j++)  // run on all events
       {
         ret = CAEN_DGTZ_GetEventInfo(tHandle[i], buffer742[i], buffer742Size[i], j, &EventInfo[i], &EventPtr[i]);
         ret = CAEN_DGTZ_DecodeEvent(tHandle[i], EventPtr[i], (void**)&Event742[i]);
@@ -1204,9 +1591,9 @@ int run_acquisition() {
         unsigned int gr;
         
         //save all time tags of each v1742 digitizer
-        for(gr = 0 ; gr < gParams.Groups742 ; gr++)
+        for(gr = 0 ; gr < gParams.Groups742 ; gr++)     //run on all groups of this digitizer
         {
-          if (Event742[i]->GrPresent[gr])
+          if (Event742[i]->GrPresent[gr])               // if the group is active
           {
             // TTT Calculation
             TTT[i][gr] = ((Nroll[i][gr]<<30) + (Event742[i]->DataGroup[gr].TriggerTimeTag & 0x3FFFFFFF))*Tt;
@@ -1231,15 +1618,55 @@ int run_acquisition() {
             float *TriggerWave;
             float *ChannelWave;
             
+            float *ChannelWave_even;
+            float *ChannelWave_odd;
+            float *ChannelWave_result;
+            
+            float TRresults[5] = {0,0,0,0,0};
+            // TRresults[0] = baseline
+            // TRresults[1] = secondBaseline
+            // TRresults[2] = threshold
+            // TRresults[3] = m
+            // TRresults[4] = q
+//             TRresults = (float*) malloc(5*sizeof(float)); 
+            
+            
+            // PULSEresults[0] = baseline
+            // PULSEresults[1] = secondBaseline
+            // PULSEresults[2] = threshold
+            // PULSEresults[3] = m
+            // PULSEresults[4] = q
+//             PULSEresults = (float*) malloc(5*sizeof(float)); 
+            
+            double timesBase = 2.0; // FIXME hardcoded!!!
+            double cutoffBaseline = 5.0; // FIXME hardcoded!!!
+            
             //interpolate the trigger wave
             uint32_t nSamplesTR = Event742[i]->DataGroup[gr].ChSize[8];
             TriggerWave = Event742[i]->DataGroup[gr].DataChannel[8]; //see ./home/caenvme/Programs/CAEN/CAENDigitizer_2.7.1/include
             
-            double TriggerEdgeTime = interpolateWithMultiplePoints(TriggerWave, nSamplesTR, gParams.v1742_TRThreshold[i], gParams.v1742_TriggerEdge, 0,1); // interpolate with line, Type = 1 means trigger wave 
+            // calculate threshold crossing for trigger wave of this group
+            // create variables and arrays to be filled by fitting function 
+            double TriggerEdgeTime = interpolateWithMultiplePoints(TriggerWave, 
+                                                                   nSamplesTR, 
+                                                                   gParams.v1742_TRpulsePolarity[i], 
+                                                                   gParams.v1742_BaselineStart[i],
+                                                                   gParams.v1742_BaselineSamples[i],
+                                                                   gParams.v1742_DeltaSquareStartPoint[i],
+                                                                   gParams.v1742_LengthSecondBaseline[i],
+                                                                   gParams.v1742_RegressionSamplesHalfNum[i],
+                                                                   gParams.v1742_FixedThreshold[i],
+                                                                   TRresults,
+                                                                   timesBase,
+                                                                   cutoffBaseline
+                                                                   );
+            
+//             printf("%d\t%f\t%f\t%f\t%f\t%f\n",gParams.v1742_FixedThreshold[i],TRresults[0],TRresults[0],TRresults[0],TRresults[0],TRresults[0]);
+            
             
             if(gParams.OutputWaves742)
             {
-              //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
+              //first write the TTT of this wave for this group
               fwrite(&TTT[i][gr],sizeof(double),1,trFile[i*gParams.Groups742 + gr]); 
               unsigned int w;
               for(w=0;w<nSamplesTR;w++) //then the wave
@@ -1249,76 +1676,309 @@ int run_acquisition() {
             }
             
             unsigned int ch;
-            for(ch = 0 ; ch < gParams.ChannelsPerGroup742 ; ch ++)
-            {
-              
-              
-              //interpolate the wave
-              uint32_t nSamplesCH = Event742[i]->DataGroup[gr].ChSize[ch];
-              ChannelWave = Event742[i]->DataGroup[gr].DataChannel[ch];
-              double PulseEdgeTime = interpolateWithMultiplePoints(ChannelWave, nSamplesCH, gParams.v1742_ChannelThreshold[i], gParams.v1742_ChannelPulseEdge[i], 0,0); // interpolate with line, Type = 0 means pulse wave 
-              
-              
-              
-              if(gParams.OutputWaves742)
-              {
-                //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
-                fwrite(&TTT[i][gr],sizeof(double),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch]); 
-                unsigned int w;
-                for(w=0;w<nSamplesCH;w++)
-                {
-                  fwrite(&ChannelWave[w],sizeof(float),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch]);
-                }
-              }
             
-              
-              if(PulseEdgeTime >= 0)
+            //if timing channels pairing is enabled, pair channels in consecutive pairs and subtract, before passing to interpolate
+            //for consistency of the output data, the summed pulse is written twice in the output
+            
+//             int gParams.pairTimingChannels = 1;
+            if(gParams.v1742_pairTimingChannels[i][gr])
+            {
+              for(ch = 0 ; ch < gParams.ChannelsPerGroup742 ; ch = ch+2)           // run only on even channels
               {
-                PulseEdgeTime = TriggerEdgeTime - PulseEdgeTime;
-                if(gParams.WriteData)
+                //interpolate the wave
+                uint32_t nSamplesCH = Event742[i]->DataGroup[gr].ChSize[ch];       // get number of samples
+                ChannelWave_even = Event742[i]->DataGroup[gr].DataChannel[ch];     // get the wave
+                ChannelWave_odd = Event742[i]->DataGroup[gr].DataChannel[ch+1];    // get the wave
+                ChannelWave_result = (float*) malloc(nSamplesCH*sizeof(float));
+                unsigned int w;
+                
+                for(w=0;w<nSamplesCH;w++)                                          // subtract next wave to this one
                 {
-                  if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
-                    Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = PulseEdgeTime;
-                  if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
-                    fprintf(sStamps742[i],"%f ",PulseEdgeTime);             
+                  ChannelWave_result[w] = ChannelWave_even[w] - ChannelWave_odd[w];
                 }
-              }
-              else
-              {
-                if(gParams.WriteData)
+                
+                float PULSEresults[5] = {0,0,0,0,0};
+                double PulseEdgeTime = interpolateWithMultiplePoints(ChannelWave_result, 
+                                                                     nSamplesCH, 
+                                                                     gParams.v1742_Pair_WavePulsePolarity[i][gr][ch], 
+                                                                     gParams.v1742_Pair_BaselineStart,
+                                                                     gParams.v1742_Pair_BaselineSamples,
+                                                                     gParams.v1742_Pair_DeltaSquareStartPoint,
+                                                                     gParams.v1742_Pair_LengthSecondBaseline,
+                                                                     gParams.v1742_Pair_RegressionSamplesHalfNum,
+                                                                     gParams.v1742_Pair_FixedThreshold[i][gr][ch],
+                                                                     PULSEresults,
+                                                                     timesBase,
+                                                                     cutoffBaseline
+                                                                     );
+                
+                
+                if(gParams.OutputWaves742)
                 {
-                  if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
-                    Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = 0;
-                  if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
-                    fprintf(sStamps742[i],"%f ",0);             
-                }
-              }
-              
-              
-              //---------------------------------//
-              // PLOT WAVES
-              //---------------------------------//
-              if(gParams.EnablePlots742)
-              {
-                if( (i*gParams.Groups742*gParams.ChannelsPerGroup742 + gr*gParams.ChannelsPerGroup742 + ch) == gActiveChannel)
-                {
-                  if((gCurrTime-tPrevWPlotTime) > 1000)
+                  //EVEN wave
+                  //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
+                  fwrite(&TTT[i][gr],sizeof(double),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch]); 
+                  
+                  for(w=0;w<nSamplesCH;w++)
                   {
-                    event_file = fopen("PlotWave742.txt", "w");
-                    for(k=0; k < nSamplesCH; k++) {  //nSamplesCH and nSamplesTR should be the same...
-                      fprintf(event_file, "%f ", TriggerWave[k]);
-                      fprintf(event_file, "%f\n", ChannelWave[k]);
-                    }
-                    fclose(event_file);
-                    fprintf(plotter, "set term x11 noraise nopersist\n");
-                    fprintf(plotter, "set xlabel 'Samples' \n");
-                    fprintf(plotter, "plot 'PlotWave742.txt' u 0:1 title 'Trigger_%d' w step,'PlotWave742.txt' u 0:2 title 'Channel_%d' w step\n",gActiveChannel,gActiveChannel);
-                    fflush(plotter);
-                    tPrevWPlotTime = gCurrTime;
+                    fwrite(&ChannelWave_even[w],sizeof(float),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch]);
+                  }
+                  
+                  //ODD wave
+                  //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
+                  fwrite(&TTT[i][gr],sizeof(double),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch+1]); 
+                  
+                  for(w=0;w<nSamplesCH;w++)
+                  {
+                    fwrite(&ChannelWave_odd[w],sizeof(float),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch+1]);
                   }
                 }
-              }
-            }           
+                
+                double timeStamp = 0.0;
+                if( (PulseEdgeTime >= 0) && (TriggerEdgeTime >= 0) )
+                {
+                  timeStamp = PulseEdgeTime - TriggerEdgeTime ;
+                  if(gParams.WriteData) // write twice the timeStamp, to maintain the output format 
+                  {
+                    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = timeStamp;
+                    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      fprintf(sStamps742[i],"%f ",timeStamp); 
+                    
+                    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch+1] = timeStamp;
+                    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      fprintf(sStamps742[i],"%f ",timeStamp); 
+                  }
+                }
+                else
+                {
+                  if(gParams.WriteData) // write twice the PulseEdgeTime, to maintain the output format 
+                  {
+                    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = 0;
+                    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      fprintf(sStamps742[i],"%f ",0);    
+                    
+                    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch+1] = 0;
+                    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      fprintf(sStamps742[i],"%f ",0);   
+                  }
+                }
+                
+                
+                //---------------------------------//
+                // PLOT WAVES
+                //---------------------------------//
+                // plot both waves and their result
+                if(gParams.EnablePlots742)
+                {
+                  if( (i*gParams.Groups742*gParams.ChannelsPerGroup742 + gr*gParams.ChannelsPerGroup742 + ch) == gActiveChannel || 
+                      (i*gParams.Groups742*gParams.ChannelsPerGroup742 + gr*gParams.ChannelsPerGroup742 + ch+1) == gActiveChannel)
+                  {
+                    int firstCh;
+                    int secondCh;
+                    if((gActiveChannel % 2) == 0) // even channel is active channel
+                    {
+                      firstCh = gActiveChannel;
+                      secondCh = gActiveChannel +1;
+                    }
+                    else// odd channel is active channel
+                    {
+                      firstCh = gActiveChannel -1;
+                      secondCh = gActiveChannel;
+                    }
+                    if((gCurrTime-tPrevWPlotTime) > 1000)
+                    {
+                      event_file = fopen("PlotWave742.txt", "w");
+                      for(k=0; k < nSamplesCH; k++) {  //nSamplesCH and nSamplesTR should be the same...
+                        fprintf(event_file, "%f ", TriggerWave[k] + 1000);
+                        fprintf(event_file, "%f ", ChannelWave_even[k]);
+                        fprintf(event_file, "%f ", ChannelWave_odd[k]);
+                        fprintf(event_file, "%f\n", ChannelWave_result[k]);
+                      }
+                      fclose(event_file);
+                      fprintf(plotter, "set term x11 noraise nopersist\n");
+                      fprintf(plotter, "set xlabel 'Samples' \n");
+                      fprintf(plotter, "set xrange [0:%d] \n",nSamplesCH);
+                      fprintf(plotter, "set yrange [-1500:5096] \n");
+                      fprintf(plotter, "TRbaseline(x) = %f \n"      ,TRresults[0] + 1000);
+                      fprintf(plotter, "TRsecondBaseline(x) = %f \n",TRresults[1]+ 1000);
+                      fprintf(plotter, "TRthreshold(x) = %f \n"     ,TRresults[2]+ 1000);
+                      fprintf(plotter, "TRfit(x) = %f * x + %f \n"  ,TRresults[3],TRresults[4] + 1000);
+                      
+                      fprintf(plotter, "PULSEbaseline(x) = %f \n"      ,PULSEresults[0]);
+                      fprintf(plotter, "PULSEsecondBaseline(x) = %f \n",PULSEresults[1]);
+                      fprintf(plotter, "PULSEthreshold(x) = %f \n"     ,PULSEresults[2]);
+                      fprintf(plotter, "PULSEfit(x) = %f * x + %f \n"  ,PULSEresults[3],PULSEresults[4]);
+                      fprintf(plotter, "plot 'PlotWave742.txt' u 0:1 title 'Trigger_%d' w step lw 3, 'PlotWave742.txt' u 0:2 title 'Channel_%d' w step lw 3, 'PlotWave742.txt' u 0:3 title 'Channel_%d' w step lw 3, 'PlotWave742.txt' u 0:4 title 'Channel_%d - Channel_%d' w step lw 3",gActiveChannel,firstCh,secondCh,firstCh,secondCh);
+                      
+                      if(TriggerEdgeTime >= 0)
+                      {
+                        if(gParams.v1742_FixedThreshold[i] == 0)
+                        {
+                          fprintf(plotter, ",TRbaseline(x) lc 1 notitle, TRsecondBaseline(x) lc 1  notitle, TRthreshold(x) lc 1  notitle, TRfit(x) lc 1  notitle");
+                        }
+                        else 
+                        {
+                          fprintf(plotter, ",TRbaseline(x) lc 1 notitle, TRthreshold(x) lc 1  notitle, TRfit(x) lc 1  notitle");
+                        }
+                      }
+                      
+                      if(PulseEdgeTime >= 0)
+                      {
+                        
+                        if(gParams.v1742_Pair_FixedThreshold[i][gr][ch] == 0)
+                        {
+                          fprintf(plotter, ", PULSEbaseline(x) lc 7  notitle, PULSEsecondBaseline(x) lc 7 notitle, PULSEthreshold(x) lc 7 notitle, PULSEfit(x) lc 7 notitle \n");
+                        }
+                        else 
+                        {
+                          fprintf(plotter, ", PULSEbaseline(x) lc 7  notitle,PULSEthreshold(x) lc 7 notitle, PULSEfit(x) lc 7 notitle");
+                        }
+                        
+                      }
+                      fprintf(plotter, "\n");
+                      
+                      
+                      //fprintf(plotter, "plot 'PlotWave742.txt' u 0:1 title 'Trigger_%d' w step lw 3, 'PlotWave742.txt' u 0:2 title 'Channel_%d' w step lw 3, 'PlotWave742.txt' u 0:3 title 'Channel_%d' w step lw 3, 'PlotWave742.txt' u 0:4 title 'Channel_%d - Channel_%d' w step lw 3, TRbaseline(x) lc 1 notitle, TRsecondBaseline(x) lc 1  notitle, TRthreshold(x) lc 1  notitle, TRfit(x) lc 1  notitle, PULSEbaseline(x) lc 7  notitle, PULSEsecondBaseline(x) lc 7 notitle, PULSEthreshold(x) lc 7 notitle, PULSEfit(x) lc 7 notitle \n",gActiveChannel,firstCh,secondCh,firstCh,secondCh);
+                      fflush(plotter);
+                      tPrevWPlotTime = gCurrTime;
+                    }
+                  }
+                }
+//                 PULSEresults[0] = 0;
+                
+                free(ChannelWave_result);
+              }  
+            }
+            else
+            {
+              for(ch = 0 ; ch < gParams.ChannelsPerGroup742 ; ch ++)
+              {
+                
+                
+                //interpolate the wave
+                uint32_t nSamplesCH = Event742[i]->DataGroup[gr].ChSize[ch];  // get number of samples
+                ChannelWave = Event742[i]->DataGroup[gr].DataChannel[ch];     // get the wave
+                float PULSEresults[5] = {0,0,0,0,0};
+                double PulseEdgeTime = interpolateWithMultiplePoints(ChannelWave, 
+                                                                     nSamplesCH, 
+                                                                     gParams.v1742_Single_WavePulsePolarity[i][gr][ch], 
+                                                                     gParams.v1742_Single_BaselineStart,
+                                                                     gParams.v1742_Single_BaselineSamples,
+                                                                     gParams.v1742_Single_DeltaSquareStartPoint,
+                                                                     gParams.v1742_Single_LengthSecondBaseline,
+                                                                     gParams.v1742_Single_RegressionSamplesHalfNum,
+                                                                     gParams.v1742_Single_FixedThreshold[i][gr][ch],
+                                                                     PULSEresults,
+                                                                     timesBase,
+                                                                     cutoffBaseline
+                                                                     );
+                
+                
+                if(gParams.OutputWaves742)
+                {
+                  //first write the TTT of this wave for this group, useful for debugging with the interpolated data)
+                  fwrite(&TTT[i][gr],sizeof(double),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch]); 
+                  unsigned int w;
+                  for(w=0;w<nSamplesCH;w++)
+                  {
+                    fwrite(&ChannelWave[w],sizeof(float),1,waveFile[i*(gParams.Groups742*gParams.ChannelsPerGroup742)+gr*(gParams.ChannelsPerGroup742)+ch]);
+                  }
+                }
+                
+                double timeStamp = 0.0;
+                if( (PulseEdgeTime >= 0) && (TriggerEdgeTime >= 0) )
+                {
+                  timeStamp = PulseEdgeTime - TriggerEdgeTime;
+                  if(gParams.WriteData)
+                  {
+                    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = timeStamp;
+                    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      fprintf(sStamps742[i],"%f ",timeStamp);             
+                  }
+                }
+                else
+                {
+                  if(gParams.WriteData)
+                  {
+                    if(gParams.OutputMode == OUTPUTMODE_BINARY | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      Data742[i].PulseEdgeTime[gr * gParams.ChannelsPerGroup742 + ch] = 0;
+                    if(gParams.OutputMode == OUTPUTMODE_TEXT | gParams.OutputMode == OUTPUTMODE_BOTH)
+                      fprintf(sStamps742[i],"%f ",0);             
+                  }
+                }
+                
+                
+                //---------------------------------//
+                // PLOT WAVES
+                //---------------------------------//
+                if(gParams.EnablePlots742)
+                {
+                  if( (i*gParams.Groups742*gParams.ChannelsPerGroup742 + gr*gParams.ChannelsPerGroup742 + ch) == gActiveChannel)
+                  {
+                    if((gCurrTime-tPrevWPlotTime) > 1000)
+                    {
+                      event_file = fopen("PlotWave742.txt", "w");
+                      for(k=0; k < nSamplesCH; k++) {  //nSamplesCH and nSamplesTR should be the same...
+                        fprintf(event_file, "%f ", TriggerWave[k] + 1000);
+                        fprintf(event_file, "%f\n", ChannelWave[k]);
+                      }
+                      fclose(event_file);
+                      fprintf(plotter, "set term x11 noraise nopersist\n");
+                      fprintf(plotter, "set xlabel 'Samples' \n");
+                      fprintf(plotter, "set yrange [0:4096] \n");
+                      fprintf(plotter, "TRbaseline(x) = %f \n"      ,TRresults[0] + 1000);
+                      fprintf(plotter, "TRsecondBaseline(x) = %f \n",TRresults[1] + 1000);
+                      fprintf(plotter, "TRthreshold(x) = %f \n"     ,TRresults[2] + 1000);
+                      fprintf(plotter, "TRfit(x) = %f * x + %f \n"  ,TRresults[3],TRresults[4] + 1000);
+                      
+                      fprintf(plotter, "PULSEbaseline(x) = %f \n"      ,PULSEresults[0]);
+                      fprintf(plotter, "PULSEsecondBaseline(x) = %f \n",PULSEresults[1]);
+                      fprintf(plotter, "PULSEthreshold(x) = %f \n"     ,PULSEresults[2]);
+                      fprintf(plotter, "PULSEfit(x) = %f * x + %f \n"  ,PULSEresults[3],PULSEresults[4]);
+                      
+                      fprintf(plotter, "plot 'PlotWave742.txt' u 0:1 title 'Trigger_%d' w step lw 3,'PlotWave742.txt' u 0:2 title 'Channel_%d' w step  lw 3",gActiveChannel,gActiveChannel);
+                      
+                      if(TriggerEdgeTime >= 0)
+                      {
+                        if(gParams.v1742_FixedThreshold[i] == 0)
+                        {
+                          fprintf(plotter, ",TRbaseline(x) lc 1 notitle, TRsecondBaseline(x) lc 1  notitle, TRthreshold(x) lc 1  notitle, TRfit(x) lc 1  notitle");
+                        }
+                        else 
+                        {
+                          fprintf(plotter, ",TRbaseline(x) lc 1 notitle, TRthreshold(x) lc 1  notitle, TRfit(x) lc 1  notitle");
+                        }
+                        
+                      }
+                      if(PulseEdgeTime >= 0)
+                      {
+                        if(gParams.v1742_Single_FixedThreshold[i][gr][ch] == 0)
+                        {
+                          fprintf(plotter, ", PULSEbaseline(x) lc 7  notitle, PULSEsecondBaseline(x) lc 7 notitle, PULSEthreshold(x) lc 7 notitle, PULSEfit(x) lc 7 notitle \n");
+                        }
+                        else 
+                        {
+                          fprintf(plotter, ", PULSEbaseline(x) lc 7  notitle,PULSEthreshold(x) lc 7 notitle, PULSEfit(x) lc 7 notitle");
+                        }                
+                      }
+                      fprintf(plotter, "\n");
+//                       fprintf(plotter, "plot 'PlotWave742.txt' u 0:1 title 'Trigger_%d' w step lw 3,'PlotWave742.txt' u 0:2 title 'Channel_%d' w step  lw 3, TRbaseline(x) lc 7 notitle, TRsecondBaseline(x) lc 1  notitle, TRthreshold(x) lc 1  notitle, TRfit(x) lc 1  notitle, PULSEbaseline(x) lc 1  notitle, PULSEsecondBaseline(x) lc 7 notitle, PULSEthreshold(x) lc 7 notitle, PULSEfit(x) lc 7 notitle\n",gActiveChannel,gActiveChannel);
+                      fflush(plotter);
+                      tPrevWPlotTime = gCurrTime;
+                    }
+                  }
+                }
+              }  
+            }
+//             PULSEresults[5] = {0,0,0,0,0};
+//             free(TRresults);
+//             free(PULSEresults);
+                     
           }
           else
           {
@@ -1434,7 +2094,7 @@ int cleanup_on_exit() {
   
   if (gHistPlotFile != NULL)  pclose(gHistPlotFile); 
   if (gWavePlotFile != NULL)  pclose(gWavePlotFile); 
-  
+  if (plotter       != NULL)  pclose(plotter); 
   if(gWaveforms) free(gWaveforms);
   
 //   for(i=0; i<MAX_CHANNELS; ++i) {
@@ -1472,6 +2132,7 @@ int cleanup_on_exit() {
     ret = CAEN_DGTZ_CloseDigitizer(tHandle[i]);
   }
   
+  printf("\nData files written in folder %s\n\n",dirName);
 //   fclose(tttFile);
   
 //   for(i=0; i<gParams.NumOfV1742; i++) {  
@@ -1534,7 +2195,11 @@ int setup_acquisition(char *fname) {
   uint32_t rom_board_id;
   
   clear_screen();
-  plotter = popen("gnuplot", "w");    // Open plotter pipe (gnuplot)
+  if(gParams.EnablePlots742)
+  {
+    plotter = popen("gnuplot", "w");    // Open plotter pipe (gnuplot)
+  }
+ 
   /* ---------------------------------------------------------------------------------------
    * * Set Parameters (default values or read from config file)
    ** ---------------------------------------------------------------------------------------
@@ -1545,27 +2210,36 @@ int setup_acquisition(char *fname) {
     return -1; 
   }
   
+  printf("Th %d\t%d\n",gParams.v1742_FixedThreshold[0],gParams.v1742_FixedThreshold[1]);
+  
 //   tttFile      = fopen("ttt.txt","w");
   
 //   sStamps740 = (FILE*) malloc (  sizeof(FILE*)) 
   char stamps742FileName[100],b742FileName[100],b740FileName[100],stamps740FileName[100];
   
   unsigned int j;
-  char dirName[100];
+  
   char MakeFolder[100];
   char copyConfig[100];
   // get time of day and create the listmode file name
   char actual_time[20];
   TimeOfDay(actual_time);
   
-  sprintf(dirName,"./Run_%s",actual_time);
+  if(gAcqStats.frameName == 0)
+  {
+    sprintf(dirName,"./Run_%s",actual_time);
+  }
+  else
+  {
+    sprintf(dirName,"./Run_%s",gAcqStats.frameName);
+  }
   printf("Creating subfolder %s\n",dirName);
-  sprintf(MakeFolder,"mkdir %s",dirName);
+  sprintf(MakeFolder,"mkdir -p %s",dirName);
   sprintf(copyConfig,"cp %s %s",fname,dirName);
   //first, create a new directory
   system(MakeFolder);
   //copy the config file into that directory
-  printf("Ccopying configuration file %s in %s\n",copyConfig,dirName);
+  printf("Copying configuration file %s in %s\n",fname,dirName);
   system(copyConfig);
   
   if(gParams.WriteData)
@@ -1756,6 +2430,10 @@ int setup_acquisition(char *fname) {
   
   Table = (DataCorrection_t*) calloc (gParams.NumOfV1742,sizeof(DataCorrection_t));
   
+//   X742Tables = (CAEN_DGTZ_DRS4Correction_t **) calloc(gParams.NumOfV1742 , sizeof(CAEN_DGTZ_DRS4Correction_t*));
+//   for(iMalloc = 0; iMalloc < gParams.NumOfV1742; iMalloc++) 
+//     X742Tables[iMalloc] = (CAEN_DGTZ_DRS4Correction_t *) calloc (GROUPS_742 , sizeof(CAEN_DGTZ_DRS4Correction_t));
+  
 //   memset(TTT, 0, sizeof(TTT[0][0]) * gParams.NumOfV1742 * GROUPS_742);
 //   memset(PrevTTT, 0, sizeof(PrevTTT[0][0]) * gParams.NumOfV1742 * GROUPS_742);
 //   memset(Nroll, 0, sizeof(Nroll[0][0]) * gParams.NumOfV1742 * GROUPS_742);
@@ -1792,16 +2470,18 @@ int setup_acquisition(char *fname) {
     }
     
     /* open gnuplot in a pipe and the data file*/
-    gHistPlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
-    if (gHistPlotFile==NULL) {
-      printf("Can't open gnuplot\n");
-      return -1; 
+    if(gParams.EnablePlots740)
+    {
+      gHistPlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
+      if (gHistPlotFile==NULL) {
+        printf("Can't open gnuplot\n");
+        return -1; 
+      }
+      if (gParams.AcqMode == ACQMODE_MIXED) {
+        gWavePlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
+        fprintf(gWavePlotFile, "set yrange [0:4096]\n");
+      }
     }
-    if (gParams.AcqMode == ACQMODE_MIXED) {
-      gWavePlotFile = popen("gnuplot", "w");  //mod for gnuplot under linux
-      fprintf(gWavePlotFile, "set yrange [0:4096]\n");
-    }
-    
   }
   
   
@@ -1895,55 +2575,63 @@ int setup_acquisition(char *fname) {
   //   printf("SLAVE2 register 0x811c = %02x \n",rdata);
   
   
-  
-  printf("Boards Configured. Press [s] to start run or [c] to check clock alignment\n\n");
-  char c;
-  c = getch();
-  if (c == 'c') {
-    uint32_t rdata0,rdata1,rdata2;
-    
-    /*    rdata = (uint32_t *) malloc(sizeof(uint32_t) * totalNumbOfDigi);*/
-    // propagate CLK to trgout on both (all?) boards
-    /*    for(unsigned int i=0; i < 3; i++) {*/
-    
-    CAEN_DGTZ_ReadRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, &rdata0);
-    CAEN_DGTZ_WriteRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, 0x00050000);
-    CAEN_DGTZ_ReadRegister(tHandle[0], ADDR_FRONT_PANEL_IO_SET, &rdata1);
-    CAEN_DGTZ_WriteRegister(tHandle[0], ADDR_FRONT_PANEL_IO_SET, 0x00050000);
-    CAEN_DGTZ_ReadRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, &rdata2);
-    CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, 0x00050000);
-    
-    /*    }*/
-    printf("Trigger Clk is now output on TRGOUT.\n");
-    printf("Press [r] to reload PLL config, [s] to start acquisition, any other key to quit\n");
-    while( (c=getch()) == 'r') {
-      CAEN_DGTZ_WriteRegister(gHandle, ADDR_RELOAD_PLL, 0);
-      CAEN_DGTZ_WriteRegister(tHandle[0], ADDR_RELOAD_PLL, 0);
-      CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_RELOAD_PLL, 0);
-      ForceClockSync(gHandle,tHandle,gParams.NumOfV1742);
-      printf("PLL reloaded\n");
+  if(gAcqStats.start == 0) // standard acq started and stopped by keystroke
+  {
+    printf("Boards Configured. Press [s] to start run or [c] to check clock alignment\n\n");
+    char c;
+    c = getch();
+    if (c == 'c') {
+      uint32_t rdata0,rdata1,rdata2;
+      
+      /*    rdata = (uint32_t *) malloc(sizeof(uint32_t) * totalNumbOfDigi);*/
+      // propagate CLK to trgout on both (all?) boards
+      /*    for(unsigned int i=0; i < 3; i++) {*/
+      
+      CAEN_DGTZ_ReadRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, &rdata0);
+      CAEN_DGTZ_WriteRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, 0x00050000);
+      CAEN_DGTZ_ReadRegister(tHandle[0], ADDR_FRONT_PANEL_IO_SET, &rdata1);
+      CAEN_DGTZ_WriteRegister(tHandle[0], ADDR_FRONT_PANEL_IO_SET, 0x00050000);
+      CAEN_DGTZ_ReadRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, &rdata2);
+      CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, 0x00050000);
+      
+      /*    }*/
+      printf("Trigger Clk is now output on TRGOUT.\n");
+      printf("Press [r] to reload PLL config, [s] to start acquisition, any other key to quit\n");
+      while( (c=getch()) == 'r') {
+        CAEN_DGTZ_WriteRegister(gHandle, ADDR_RELOAD_PLL, 0);
+        CAEN_DGTZ_WriteRegister(tHandle[0], ADDR_RELOAD_PLL, 0);
+        CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_RELOAD_PLL, 0);
+        ForceClockSync(gHandle,tHandle,gParams.NumOfV1742);
+        printf("PLL reloaded\n");
+      }
+      /*    for(unsigned int i=0; i < totalNumbOfDigi; i++)*/
+      
+      CAEN_DGTZ_WriteRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, rdata0);
+      CAEN_DGTZ_WriteRegister(tHandle[0], ADDR_FRONT_PANEL_IO_SET, rdata1);
+      CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, rdata2);
+      free(rdata0);
+      free(rdata1);
+      free(rdata2);
     }
-    /*    for(unsigned int i=0; i < totalNumbOfDigi; i++)*/
     
-    CAEN_DGTZ_WriteRegister(gHandle, ADDR_FRONT_PANEL_IO_SET, rdata0);
-    CAEN_DGTZ_WriteRegister(tHandle[0], ADDR_FRONT_PANEL_IO_SET, rdata1);
-    CAEN_DGTZ_WriteRegister(tHandle[1], ADDR_FRONT_PANEL_IO_SET, rdata2);
-    free(rdata0);
-    free(rdata1);
-    free(rdata2);
+    
+    /*  printf("\nPress a key to start the acquisition\n");*/
+    
+    if (c != 's') {
+      GetNextEvent[0]=1;
+      GetNextEvent[1]=1;
+      
+      return -1;
+    }
+    ret = CAEN_DGTZ_SWStartAcquisition(gHandle);
+    printf("Acquisition started\n");
+  }
+  else  // start without waiting for keystroke
+  {
+    ret = CAEN_DGTZ_SWStartAcquisition(gHandle);
+    printf("Acquisition started\n");
   }
   
-  
-  /*  printf("\nPress a key to start the acquisition\n");*/
-  
-  if (c != 's') {
-    	GetNextEvent[0]=1;
-	GetNextEvent[1]=1;
-
-    return -1;
-  }
-  ret = CAEN_DGTZ_SWStartAcquisition(gHandle);
-  printf("Acquisition started\n");
   
   return 0; 
 }
@@ -1986,6 +2674,34 @@ int check_user_input() {
       printf("Group = ");
       scanf("%d", &grp4stats);
     }
+    if (c=='p') {
+      if(gParams.EnablePlots740 || gParams.EnablePlots742 )
+      {
+        printf("Disabling all plots...");
+        gParams.EnablePlots740 = 0;
+        gParams.EnablePlots742 = 0;
+        
+        if (gHistPlotFile != NULL)  pclose(gHistPlotFile); 
+        if (gWavePlotFile != NULL)  pclose(gWavePlotFile); 
+        if (plotter       != NULL)  pclose(plotter); 
+        
+        gHistPlotFile = NULL;
+        gWavePlotFile = NULL;
+        plotter       = NULL;
+      }
+      else
+      {
+        printf("Enabling all plots...");
+        gParams.EnablePlots740 = 1;
+        gParams.EnablePlots742 = 1;
+        
+        gHistPlotFile = popen("gnuplot", "w");  
+        gWavePlotFile = popen("gnuplot", "w");
+        plotter       = popen("gnuplot", "w");
+      }
+    }
+    
+    
   } /*  if (kbhit()) */
   
   return 0;

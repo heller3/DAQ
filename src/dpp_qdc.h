@@ -89,6 +89,7 @@ typedef struct
   uint32_t WriteData;
   uint32_t OutputMode;
   uint32_t OutputWaves742;
+  uint32_t CalculateAmplitude;
   uint32_t ConnectionType;
   uint32_t ConnectionLinkNum;
   uint32_t ConnectionConetNode;
@@ -207,6 +208,7 @@ typedef struct
 {
   double TTT;                                 /*Trigger time tag of the event, i.e. of the entire board (we always operate with common external trigger) */
   uint16_t Charge[64];                        /*All 64 channels for now*/
+  uint16_t Amplitude[64];                        /*All 64 channels for now*/
 } Data740_t;
 
 typedef struct
@@ -293,6 +295,8 @@ void clear_screen( void );
 // double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType);
 // double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType,int baseLineSamples);
 double interpolateWithMultiplePoints(float* data, unsigned int length, CAEN_DGTZ_PulsePolarity_t edge, int Tstart,int baseLineSamples, int deltaSquareStartPoint, int lengthSecondBaseline, int samplesNum, int fixedThreshold, float* res, double timeBase,double cutoffBaseline);
+uint16_t calculate_amplitude(uint16_t* data, int length,int baseLineSamples);
+
 
 #ifdef LINUX
 #include <sys/time.h> /* struct timeval, select() */

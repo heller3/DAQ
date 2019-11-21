@@ -35,7 +35,6 @@
 #define OUTPUTMODE_BINARY  1
 #define OUTPUTMODE_BOTH    2
 
-
 #define CONNECTION_TYPE_USB    0
 #define CONNECTION_TYPE_OPT    1
 #define CONNECTION_TYPE_AUTO   255
@@ -87,8 +86,10 @@
 typedef struct 
 {
   // V1740D
+  uint32_t WriteData;
   uint32_t OutputMode;
   uint32_t OutputWaves742;
+  uint32_t CalculateAmplitude;
   uint32_t ConnectionType;
   uint32_t ConnectionLinkNum;
   uint32_t ConnectionConetNode;
@@ -127,7 +128,7 @@ typedef struct
   //V1742
   uint32_t NumOfV1742;                   //number of V1742 digitizers in the system - NB max is 8
   uint32_t registerWritesCounter;
-  uint32_t v1742_TriggerEdge;   
+  uint32_t v1742_TriggerPolarity;   
   uint32_t v1742_RecordLength;  
   uint32_t v1742_MatchingWindow;
   uint32_t v1742_IOlevel;       
@@ -135,7 +136,23 @@ typedef struct
   uint32_t v1742_DRS4Frequency; 
   uint32_t v1742_StartMode;     
   uint32_t v1742_EnableLog;
+  uint32_t v1742_pairTimingChannels[8][4];
   
+  uint32_t v1742_Pair_WavePulsePolarity[8][4][8]        ;  // polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+  uint32_t v1742_Pair_BaselineStart            ;  // sample from which baseline computation starts
+  uint32_t v1742_Pair_BaselineSamples          ;  // number of samples used to compute baseline
+  uint32_t v1742_Pair_DeltaSquareStartPoint    ;  // distance in samples from calculated begin square pulse to begin of second baseline calculation 
+  uint32_t v1742_Pair_LengthSecondBaseline     ;  // number of samples used to compute second baseline
+  uint32_t v1742_Pair_RegressionSamplesHalfNum ;  // number of samples used to compute linear regression of wave rise/fall
+  uint32_t v1742_Pair_FixedThreshold[8][4][8] ; 
+  
+  uint32_t v1742_Single_WavePulsePolarity[8][4][8]        ;  // polarity of paired channel pulses (CAEN_DGTZ_PulsePolarityPositive = 0, CAEN_DGTZ_PulsePolarityNegative = 1)
+  uint32_t v1742_Single_BaselineStart            ;  // sample from which baseline computation starts
+  uint32_t v1742_Single_BaselineSamples          ;  // number of samples used to compute baseline
+  uint32_t v1742_Single_DeltaSquareStartPoint    ;  // distance in samples from calculated begin square pulse to begin of second baseline calculation 
+  uint32_t v1742_Single_LengthSecondBaseline     ;  // number of samples used to compute second baseline
+  uint32_t v1742_Single_RegressionSamplesHalfNum ;  // number of samples used to compute linear regression of wave rise/fall
+  uint32_t v1742_Single_FixedThreshold[8][4][8] ; 
   
   uint32_t v1742_ConnectionType[8];
   uint32_t v1742_LinkNum[8];
@@ -150,9 +167,20 @@ typedef struct
   uint32_t v1742_PostTrigger[8]; 
   uint32_t v1742_RunDelay[8]; 
   
+  uint32_t v1742_TRpulsePolarity[8];
+  uint32_t v1742_WavePulsePolarity[8];
+  uint32_t v1742_BaselineStart[8];
+  uint32_t v1742_BaselineSamples[8];
+  uint32_t v1742_DeltaSquareStartPoint[8];
+  uint32_t v1742_LengthSecondBaseline[8];
+  uint32_t v1742_RegressionSamplesHalfNum[8];
+  uint32_t v1742_FixedThreshold[8];
+  
   uint32_t RegisterWriteBoard[64];                           // no more than 64 register writes, sorry...
   uint32_t RegisterWriteAddr[64];                           // no more than 64 register writes, sorry...
   uint32_t RegisterWriteValue[64];                           // no more than 64 register writes, sorry...
+  
+  
   
 } BoardParameters;
 
@@ -162,6 +190,8 @@ typedef struct
   long gRunElapsedTime;                                        /* Acquisition time (elapsed since start) */
   uint64_t TotEvCnt;                                           /* Total number of events                 */
   unsigned int nb;                                             /* Number of bytes read                   */
+  char* frameName;
+  int start;
 } Stats;
 
 
@@ -178,6 +208,7 @@ typedef struct
 {
   double TTT;                                 /*Trigger time tag of the event, i.e. of the entire board (we always operate with common external trigger) */
   uint16_t Charge[64];                        /*All 64 channels for now*/
+  uint16_t Amplitude[64];                        /*All 64 channels for now*/
 } Data740_t;
 
 typedef struct
@@ -191,7 +222,8 @@ typedef struct
 /* Globals */
 // extern int	        gHandle;                                   /* CAEN library handle */
 int	gHandle; /* CAEN library handle */
-int      tHandle[8]; /* CAEN library handle */
+int     tHandle[8]; /* CAEN library handle */
+char    dirName[100];
 
 /* Variable declarations */                                    
 extern unsigned int gActiveChannel;                            /* Active channel for data analysis */
@@ -260,7 +292,9 @@ int  ForceClockSync(int handle,int tHandle[],int size);
 /* Utility functions prototypes */
 long get_time();
 void clear_screen( void );
-double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType);
+// double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType);
+// double interpolateWithMultiplePoints(float* data, unsigned int length, int threshold, CAEN_DGTZ_TriggerPolarity_t edge, double Tstart, int WaveType,int baseLineSamples);
+double interpolateWithMultiplePoints(float* data, unsigned int length, CAEN_DGTZ_PulsePolarity_t edge, int Tstart,int baseLineSamples, int deltaSquareStartPoint, int lengthSecondBaseline, int samplesNum, int fixedThreshold, float* res, double timeBase,double cutoffBaseline);
 
 #ifdef LINUX
 #include <sys/time.h> /* struct timeval, select() */

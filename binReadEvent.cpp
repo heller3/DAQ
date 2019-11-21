@@ -27,6 +27,7 @@ struct EventFormat_t
   double TTT742_0;                       /*Trigger time tag of the event according to 742_0*/
   double TTT742_1;                       /*Trigger time tag of the event according to 742_1*/
   uint16_t Charge[64];                      /*Integrated charge for all the channels of 740 digitizer*/
+  uint16_t Amplitude[64];                   /*Amplitude of all channels of 740 digitizer*/
   double PulseEdgeTime[64];                 /*PulseEdgeTime for each channel in both timing digitizers*/
 } __attribute__((__packed__));
 
@@ -58,6 +59,10 @@ int main(int argc,char **argv)
     for(int i = 0 ; i < 64 ; i ++)
     {
       std::cout << ev.Charge[i] << " ";
+    }
+    for(int i = 0 ; i < 64 ; i ++)
+    {
+      std::cout << ev.Amplitude[i] << " ";
     }
     for(int i = 0 ; i < 64 ; i ++)
     {

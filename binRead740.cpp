@@ -27,6 +27,7 @@ typedef struct
 {
   double TTT;                                 /*Trigger time tag of the event, i.e. of the entire board (we always operate with common external trigger) */
   uint16_t Charge[64];                        /*All 64 channels for now*/
+  uint16_t Amplitude[64];                        /*All 64 channels for now*/
 } Data740_t;
 
 
@@ -56,6 +57,10 @@ int main(int argc,char **argv)
     for(int i = 0 ; i < 64 ; i ++)
     {
       std::cout << ev740.Charge[i] << " ";
+    }
+    for(int i = 0 ; i < 64 ; i ++)
+    {
+      std::cout << ev740.Amplitude[i] << " ";
     }
     std::cout << std::endl;
     counter++;

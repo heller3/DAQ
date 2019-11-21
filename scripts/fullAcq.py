@@ -13,6 +13,7 @@ import shutil
 import configparser
 import time
 import serial
+import struct
 from serial import SerialException
 
 import minimalmodbus
@@ -58,6 +59,25 @@ def jog_arm(motor,value):
     #time.sleep(0.2)
 
 
+def move_stage(stages,device,distance):
+    time.sleep(1)
+    command     = 21         #move absolute
+    step_size   = 0.49609375 #micrometers
+    #z_step      = 500.0 # micrometers
+    #x_step      = 3200.0 # micrometers
+    N_steps   = int(distance/step_size)
+    # print(N_steps)
+    # send a packet using the specified device number, command number, and data
+    # The data argument is optional and defaults to zero
+    packet = struct.pack('<BBl', device, command, N_steps)
+    stages.write(packet)
+    
+    ret = stages.readline()
+    if ret[1] == 255:
+      print('ERROR! Stage returned error code 255. No movement.')
+    else: 
+      print('Success')
+
 
 def stop_both_arms(motor1,motor2):
     motor1.write_register(125,32,functioncode=16)
@@ -72,6 +92,10 @@ def main(args):
       sys.exit(1)
 
     useMotors = False
+    useV1 = False
+    useV2 = False
+    useLinearStages=False
+
     initial_Voltage=19.001
     repetitions = 1
     acquire_data = True
@@ -103,6 +127,9 @@ def main(args):
     if config.has_option('GENERAL', 'use_motors') == False:
       print('ERROR! You need to specify if motors are used or not, with use_motors ! ')
       sys.exit(1)
+    if config.has_option('GENERAL', 'use_linear_stages') == False:
+      print('ERROR! You need to specify if linear stages are used or not, with use_linear_stages ! ')
+      sys.exit(1)
 
 
     if config.has_option('GENERAL', 'repetitions') == True:
@@ -124,6 +151,13 @@ def main(args):
       useMotors = True
     else:
       useMotors = False
+
+    if(config['GENERAL']['use_linear_stages'] == 'true'):
+      useLinearStages = True
+    else:
+      useLinearStages = False
+
+
 
 
     #if(useMotors):
@@ -152,10 +186,11 @@ def main(args):
     # start the voltage supplies
     component1 = 0
     component2 = 0
+    motors = 0
+    stages = 0
     #motor_steps = float(config['GENERAL']['motor_steps'])
     if(useV1):
       # first power supply
-
       # v supply feb 1
       try:
         ser1 = serial.Serial(
@@ -234,6 +269,16 @@ def main(args):
       motor1.mode = minimalmodbus.MODE_RTU
       #set_jog_step(motor1,motor2,motor_steps)
 
+    #configure linear stages
+    if useLinearStages:
+      try:
+        stages = serial.Serial("/dev/LStages", 9600, 8, 'N', 1, timeout=5)
+      except SerialException:
+        print("Error opening com port. Quitting.")
+        sys.exit(0)
+      print("Opening " + stages.portstr)
+
+
     ## MAIN LOOP on acqs
     for r in range(0,repetitions):
         print ('-----> REPETITION ', r)
@@ -276,6 +321,35 @@ def main(args):
                 jog_arm(motor2,angle2)
                 time.sleep(1)
 
+            if useLinearStages:
+              x_distance = 0
+              z_distance = 0
+
+              if config.has_option(section_name, 'x_distance') == False:
+                print('ERROR! No distance on x axis provided !')
+                exit_with_grace(component1,component2)
+              else:
+                x_distance = float(config[section_name]['x_distance'])
+
+              if config.has_option(section_name, 'z_distance') == False:
+                print('ERROR! No distance on z axis provided !')
+                exit_with_grace(component1,component2)
+              else:
+                z_distance = float(config[section_name]['z_distance'])
+
+
+              if(x_distance != 0):
+                print ('Moving horizontal stage of distance [microns] ', x_distance)
+                move_stage(stages,2,x_distance)
+                time.sleep(1)
+
+              if(z_distance != 0):
+                print ('Moving vertical stage of distance [microns] ', z_distance)
+                move_stage(stages,1,z_distance)
+                time.sleep(1)
+
+
+
             # SET VOLTAGES FOR THIS ACQ
             if useV1:
               print('Setting FEB1 at voltage ', config[section_name]['V_FEB_1'])
@@ -298,7 +372,7 @@ def main(args):
             if(acquire_data):
               # START DAQ
               # create the dictionary
-              folder_name = config['GENERAL']['name'] + '_' + section_name + '_Angle1_' + str(angle1) + '_Angle2_' + str(angle2) + '_V1_' + config[section_name]['V_FEB_1'] + '_V2_' + config[section_name]['V_FEB_2'] + "_t_" + config[section_name]['time']
+              folder_name = config['GENERAL']['name'] + '_' + section_name + "." + str(r) + '_Angle1_' + str(angle1) + '_Angle2_' + str(angle2) + '_V1_' + config[section_name]['V_FEB_1'] + '_V2_' + config[section_name]['V_FEB_2'] + "_t_" + config[section_name]['time']
               thisdict = {
                 'config' : config[section_name]['config'],
                 'time'   : config[section_name]['time'],

@@ -85,6 +85,7 @@ struct EventFormat_t
   double TTT742_0;                       /*Trigger time tag of the event according to 742_0*/
   double TTT742_1;                       /*Trigger time tag of the event according to 742_1*/
   uint16_t Charge[64];                      /*Integrated charge for all the channels of 740 digitizer*/
+  uint16_t Amplitude[64];                   /*Amplitude of all channels of 740 digitizer*/
   double PulseEdgeTime[64];                 /*PulseEdgeTime for each channel in both timing digitizers*/
 } __attribute__((__packed__));
 
@@ -232,6 +233,7 @@ int main(int argc,char **argv)
   ULong64_t ExtendedTimeTag = 0;
   ULong64_t startTimeTag = 0;
   UShort_t charge[64];
+  UShort_t amplitude[64];
   Float_t timestamp[64];
   //the ttree variable
   TTree *t1 ;
@@ -272,6 +274,18 @@ int main(int argc,char **argv)
         names = snames.str();
         types = stypes.str();
         t1->Branch(names.c_str(),&charge[i],types.c_str());
+      }
+      for (int i = 0 ; i < 64 ; i++)
+      {
+        //empty the stringstreams
+        snames.str(std::string());
+        stypes.str(std::string());
+        amplitude[i] = 0;
+        snames << "ampl" << i;
+        stypes << "ampl" << i << "/s";
+        names = snames.str();
+        types = stypes.str();
+        t1->Branch(names.c_str(),&amplitude[i],types.c_str());
       }
       for (int i = 0 ; i < 64 ; i++)
       {
@@ -325,6 +339,18 @@ int main(int argc,char **argv)
         //empty the stringstreams
         snames.str(std::string());
         stypes.str(std::string());
+        amplitude[i] = 0;
+        snames << "ampl" << i;
+        stypes << "ampl" << i << "/s";
+        names = snames.str();
+        types = stypes.str();
+        t1->Branch(names.c_str(),&amplitude[i],types.c_str());
+      }
+      for (int i = 0 ; i < 64 ; i++)
+      {
+        //empty the stringstreams
+        snames.str(std::string());
+        stypes.str(std::string());
         timestamp[i] = 0;
         snames << "t" << i;
         stypes << "t" << i << "/F";
@@ -353,6 +379,11 @@ int main(int argc,char **argv)
     {
 //       std::cout << ev.Charge[i] << " ";
       charge[i] = (UShort_t) ev.Charge[i];
+    }
+    for(int i = 0 ; i < 64 ; i ++)
+    {
+//       std::cout << ev.Charge[i] << " ";
+      amplitude[i] = (UShort_t) ev.Amplitude[i];
     }
     for(int i = 0 ; i < 64 ; i ++)
     {

@@ -45,6 +45,7 @@ typedef struct
 {
   double TTT;                                 /*Trigger time tag of the event, i.e. of the entire board (we always operate with common external trigger) */
   uint16_t Charge[64];                        /*All 64 channels for now*/
+  uint16_t Amplitude[64];                        /*All 64 channels for now*/
 } Data740_t;
 
 //----------------//
@@ -75,6 +76,7 @@ int main(int argc,char **argv)
   ULong64_t ExtendedTimeTag = 0;
   ULong64_t startTimeTag = 0;
   UShort_t charge[64];
+  UShort_t amplitude[64];
   Float_t timestamp[64];
   //the ttree variable
   TTree *t1 ;
@@ -154,6 +156,18 @@ int main(int argc,char **argv)
         //empty the stringstreams
         snames.str(std::string());
         stypes.str(std::string());
+        amplitude[i] = 0;
+        snames << "ampl" << i;
+        stypes << "ampl" << i << "/s";
+        names = snames.str();
+        types = stypes.str();
+        t1->Branch(names.c_str(),&amplitude[i],types.c_str());
+      }
+      for (int i = 0 ; i < 64 ; i++)
+      {
+        //empty the stringstreams
+        snames.str(std::string());
+        stypes.str(std::string());
         timestamp[i] = 0;
         snames << "t" << i;
         stypes << "t" << i << "/F";
@@ -201,6 +215,18 @@ int main(int argc,char **argv)
         //empty the stringstreams
         snames.str(std::string());
         stypes.str(std::string());
+        amplitude[i] = 0;
+        snames << "ampl" << i;
+        stypes << "ampl" << i << "/s";
+        names = snames.str();
+        types = stypes.str();
+        t1->Branch(names.c_str(),&amplitude[i],types.c_str());
+      }
+      for (int i = 0 ; i < 64 ; i++)
+      {
+        //empty the stringstreams
+        snames.str(std::string());
+        stypes.str(std::string());
         timestamp[i] = 0;
         snames << "t" << i;
         stypes << "t" << i << "/F";
@@ -225,6 +251,11 @@ int main(int argc,char **argv)
     {
       // std::cout << ev.Charge[i] << " ";
       charge[i] = (UShort_t) ev.Charge[i];
+    }
+    for(int i = 0 ; i < 64 ; i ++)
+    {
+//       std::cout << ev.Charge[i] << " ";
+      amplitude[i] = (UShort_t) ev.Amplitude[i];
     }
     for(int i = 0 ; i < 64 ; i ++)
     {
