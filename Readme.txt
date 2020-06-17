@@ -11,7 +11,7 @@ Key meanings are explained in the file
 
 Create a bin subfolder and compile from there with
 
-gcc -DLINUX ../src/readout.c ../src/dpp_qdc.c ../src/_CAENDigitizer_DPP-QDC.c  ../src/X742CorrectionRoutines.c -o readout -lCAENDigitizer -lCAENComm -fpermissive -w
+gcc -DLINUX ../src/readout.c ../src/dpp_qdc.c ../src/_CAENDigitizer_DPP-QDC.c  ../src/X742CorrectionRoutines.c -o readout -lCAENDigitizer -lCAENComm -fpermissive -w -lm
 
 Run acquisition from bin/ with
 
