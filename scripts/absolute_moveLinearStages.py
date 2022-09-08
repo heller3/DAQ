@@ -29,7 +29,7 @@ def main(args):
 
     if args['xmicrons'] is None:
       if args['zmicrons'] is None:
-        print('No distance given in both x and z. Nothing to do. Quitting...')
+        print('No position given in both x and z. Nothing to do. Quitting...')
         sys.exit(0)
 
     useLinearStages=True
@@ -37,17 +37,17 @@ def main(args):
     z_distance = 0
 
     if args['xmicrons'] is None:
-      x_distance = 0
+      x_distance = -1
     else:
       x_distance = float(args['xmicrons'])
     if args['zmicrons'] is None:
-      z_distance = 0
+      z_distance = -1
     else:
       z_distance = float(args['zmicrons'])
 
-    if x_distance == 0:
-      if z_distance == 0:
-        print('Distance given is 0 for both x and z. Nothing to do. Quitting...')
+    if x_distance == -1:
+      if z_distance == -1:
+        print('Position given is negative or invalide for both x and z. Nothing to do. Quitting...')
         sys.exit(0)
 
     #
@@ -68,15 +68,15 @@ def main(args):
       print ('')
       zls.print_current_positions(stages)
 
-      if(x_distance != 0):
-        print ('Moving horizontal stage of distance [microns] ', x_distance)
-        zls.move_stage(stages,2,x_distance)
+      if(x_distance != -1):
+        print ('Moving horizontal (x) stage to position [microns] ', x_distance)
+        zls.move_stage_absolute(stages,2,x_distance)
         print ('')
         time.sleep(1)
 
-      if(z_distance != 0):
-        print ('Moving vertical stage of distance [microns] ', z_distance)
-        zls.move_stage(stages,1,z_distance)
+      if(z_distance != -1):
+        print ('Moving vertical (z) stage to position [microns] ', z_distance)
+        zls.move_stage_absolute(stages,1,z_distance)
         print ('')
         time.sleep(1)
       
@@ -90,8 +90,8 @@ def main(args):
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Python script to move linear stages')
-  parser.add_argument('-x','--xmicrons' , help='Move x by N microns',required=False)
-  parser.add_argument('-z','--zmicrons' , help='Move z by N microns',required=False)
+  parser.add_argument('-x','--xmicrons' , help='Move x to N microns',required=False)
+  parser.add_argument('-z','--zmicrons' , help='Move z to N microns',required=False)
   args = parser.parse_args()
 
   # Convert the argparse.Namespace to a dictionary: vars(args)

@@ -20,7 +20,7 @@ import minimalmodbus
 
 from panel import Component
 import runAcquisition
-
+import zaber_library as zls
 
 def set_jog_step(motor,value):
     #motor2.write_register(1025,375,functioncode=16)
@@ -57,26 +57,6 @@ def jog_arm(motor,value):
     motor.write_register(125,32,functioncode=16)
     #motor2.write_register(125,32,functioncode=16)
     #time.sleep(0.2)
-
-
-def move_stage(stages,device,distance):
-    time.sleep(1)
-    command     = 21         #move absolute
-    step_size   = 0.49609375 #micrometers
-    #z_step      = 500.0 # micrometers
-    #x_step      = 3200.0 # micrometers
-    N_steps   = int(distance/step_size)
-    # print(N_steps)
-    # send a packet using the specified device number, command number, and data
-    # The data argument is optional and defaults to zero
-    packet = struct.pack('<BBl', device, command, N_steps)
-    stages.write(packet)
-    
-    ret = stages.readline()
-    if ret[1] == 255:
-      print('ERROR! Stage returned error code 255. No movement.')
-    else: 
-      print('Success')
 
 
 def stop_both_arms(motor1,motor2):
@@ -128,7 +108,10 @@ def main(args):
       print('ERROR! You need to specify if motors are used or not, with use_motors ! ')
       sys.exit(1)
     if config.has_option('GENERAL', 'use_linear_stages') == False:
-      print('ERROR! You need to specify if linear stages are used or not, with use_linear_stages ! ')
+      print('ERROR! You need to specify if linear stages are moved by a relative distance or not, with use_linear_stages ! ')
+      sys.exit(1)
+    if config.has_option('GENERAL', 'absolute_linear_stages') == False:
+      print('ERROR! You need to specify if linear stages are moved to an absolute position or not, with absolute_linear_stages ! ')
       sys.exit(1)
 
 
@@ -157,7 +140,15 @@ def main(args):
     else:
       useLinearStages = False
 
-
+    if(config['GENERAL']['absolute_linear_stages'] == 'true'):
+      absLinearStages = True
+    else:
+      absLinearStages = False
+    
+    # give error if both are true!
+    if useLinearStages == True and absLinearStages == True:
+      print('ERROR! You cannot set both use_linear_stages and absolute_linear_stages to true! ')
+      sys.exit(1)
 
 
     #if(useMotors):
@@ -270,7 +261,7 @@ def main(args):
       #set_jog_step(motor1,motor2,motor_steps)
 
     #configure linear stages
-    if useLinearStages:
+    if useLinearStages == True or absLinearStages == True:
       try:
         stages = serial.Serial("/dev/LStages", 9600, 8, 'N', 1, timeout=5)
       except SerialException:
@@ -340,14 +331,41 @@ def main(args):
 
               if(x_distance != 0):
                 print ('Moving horizontal stage of distance [microns] ', x_distance)
-                move_stage(stages,2,x_distance)
+                zls.move_stage(stages,2,x_distance)
                 time.sleep(1)
 
               if(z_distance != 0):
                 print ('Moving vertical stage of distance [microns] ', z_distance)
-                move_stage(stages,1,z_distance)
+                zls.move_stage(stages,1,z_distance)
+                time.sleep(1)
+            
+
+            if absLinearStages:
+              x_position = -1
+              z_position = -1
+
+              if config.has_option(section_name, 'x_position') == False:
+                print('ERROR! No position on x axis provided !')
+                exit_with_grace(component1,component2)
+              else:
+                x_position = float(config[section_name]['x_position'])
+
+              if config.has_option(section_name, 'z_position') == False:
+                print('ERROR! No position on z axis provided !')
+                exit_with_grace(component1,component2)
+              else:
+                z_position = float(config[section_name]['z_position'])
+
+
+              if(x_position != -1):
+                print ('Moving horizontal (x) stage to position [microns] ', x_position)
+                zls.move_stage_absolute(stages,2,x_position)
                 time.sleep(1)
 
+              if(z_position != -1):
+                print ('Moving vertical (z) stage to position [microns] ', z_position)
+                zls.move_stage_absolute(stages,1,z_position)
+                time.sleep(1)
 
 
             # SET VOLTAGES FOR THIS ACQ
@@ -372,7 +390,7 @@ def main(args):
             if(acquire_data):
               # START DAQ
               # create the dictionary
-              folder_name = config['GENERAL']['name'] + '_' + section_name + "." + str(r) + '_Angle1_' + str(angle1) + '_Angle2_' + str(angle2) + '_V1_' + config[section_name]['V_FEB_1'] + '_V2_' + config[section_name]['V_FEB_2'] + "_t_" + config[section_name]['time']
+              folder_name = config['GENERAL']['name'] + '_' + section_name + "." + str(r) # + '_Angle1_' + str(angle1) + '_Angle2_' + str(angle2) + '_V1_' + config[section_name]['V_FEB_1'] + '_V2_' + config[section_name]['V_FEB_2'] + "_t_" + config[section_name]['time']
               thisdict = {
                 'config' : config[section_name]['config'],
                 'time'   : config[section_name]['time'],
