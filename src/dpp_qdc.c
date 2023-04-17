@@ -18,6 +18,9 @@ int MatchingEvents=0;
 unsigned int gActiveChannel;
 unsigned int gEquippedChannels;
 unsigned int gEquippedGroups;
+int gHandle;
+int  tHandle[8]; 
+char    dirName[100];
 
 long         gCurrTime;
 long         gPrevTime;

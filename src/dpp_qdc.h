@@ -220,10 +220,10 @@ typedef struct
 
 
 /* Globals */
-// extern int	        gHandle;                                   /* CAEN library handle */
-int	gHandle; /* CAEN library handle */
-int     tHandle[8]; /* CAEN library handle */
-char    dirName[100];
+//extern int	        gHandle;                                   /* CAEN library handle */
+extern int	gHandle; /* CAEN library handle */
+extern int  tHandle[8]; /* CAEN library handle */
+extern char    dirName[100];
 
 /* Variable declarations */                                    
 extern unsigned int gActiveChannel;                            /* Active channel for data analysis */
