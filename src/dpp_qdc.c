@@ -407,6 +407,8 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
           params->ConnectionType = CONNECTION_TYPE_USB;
         if (strcmp(str1, "OPT")  == 0) 
           params->ConnectionType = CONNECTION_TYPE_OPT;
+        if (strcmp(str1, "USB_A4818")  == 0) 
+          params->ConnectionType = CONNECTION_TYPE_USB_A4818;
       }
       
       if (strcmp(str, "OutputWaves742") == 0) 
@@ -621,6 +623,8 @@ int load_configuration_from_file(char * fname, BoardParameters *params) {
           params->v1742_ConnectionType[digi] = CONNECTION_TYPE_USB;
         if (strcmp(str1, "OPT")  == 0) 
           params->v1742_ConnectionType[digi] = CONNECTION_TYPE_OPT;
+        if (strcmp(str1, "USB_A4818")  == 0) 
+          params->v1742_ConnectionType[digi] = CONNECTION_TYPE_USB_A4818;
       }
       
       if (strcmp(str, "v1742_LinkNum") == 0) {
@@ -981,8 +985,10 @@ int configure_timing_digitizers(/*int *tHandle,*/ BoardParameters *params)
   
   for(i = 0 ; i < params->NumOfV1742; i++)
   {
-    ret |= CAEN_DGTZ_OpenDigitizer(params->v1742_ConnectionType[i], params->v1742_LinkNum[i], params->v1742_ConetNode[i], params->v1742_BaseAddress[i], &tHandle[i]); 
-    
+    printf("Trying to open 1742 with parameters:\n %i  %i  %i  %i \n",params->v1742_ConnectionType[i], (params->v1742_LinkNum[i]), params->v1742_ConetNode[i], params->v1742_BaseAddress[i]);
+    // ret |= CAEN_DGTZ_OpenDigitizer2(params->v1742_ConnectionType[i], (void *)&(params->v1742_LinkNum[i]), params->v1742_ConetNode[i], params->v1742_BaseAddress[i], &tHandle[i]); 
+    ret |= CAEN_DGTZ_OpenDigitizer2(params->v1742_ConnectionType[i], (void *)&(params->v1742_LinkNum[i]), params->v1742_ConetNode[i], 0, &tHandle[i]); 
+    printf("After opening 1742, ret is %i\n",ret);
     //get info
     ret |= CAEN_DGTZ_GetInfo(tHandle[i], &BoardInfo[i]);
     if (ret) {
@@ -1172,7 +1178,6 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
   
   ret |= CAEN_DGTZ_SetGroupEnableMask(handle, GroupMask);
   
-  
   /* 
    * * Set selfTrigger threshold 
    ** Check if the module has 64 (VME) or 32 channels available (Desktop NIM) 
@@ -1183,7 +1188,6 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
     else
       for(i=0; i<32; i++) 
         ret |= _CAEN_DGTZ_SetChannelTriggerThreshold(handle,i,params->TriggerThreshold[i]);     
-      
       /* Disable Group self trigger for the acquisition (mask = 0) */
       ret |= CAEN_DGTZ_SetGroupSelfTrigger(handle,CAEN_DGTZ_TRGMODE_ACQ_ONLY,0x00);    
     /* Set the behaviour when a SW tirgger arrives */
@@ -1195,7 +1199,6 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
   
   /* Trigger Hold Off */
   ret |= CAEN_DGTZ_WriteRegister(handle, 0x8074, params->TrgHoldOff);
-  
   /* DPP Control 1 register */
   DppCtrl1 = (((params->DisTrigHist & 0x1)      << 30)   | 
   ((params->DisSelfTrigger & 1)     << 24)   |
@@ -1218,7 +1221,6 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
   
   /* Set Baseline (used in fixed baseline mode only) */
   ret |= CAEN_DGTZ_WriteRegister(handle, 0x8038, params->FixedBaseline);        
-  
   /* Set Gate Width (in samples) */
   for(i=0; i<EquippedGroups; i++) {
     ret |= CAEN_DGTZ_WriteRegister(handle, 0x1030 + 0x100*i, params->GateWidth[i]);                
@@ -1235,7 +1237,6 @@ int configure_digitizer(int handle, int EquippedGroups, BoardParameters *params)
   ret |= CAEN_DGTZ_WriteRegister(handle, 0x8004, 0x00080000); 
   /* enable Timestamp */
   ret |= CAEN_DGTZ_WriteRegister(handle, 0x8004, 0x00040000);             
-  
   /* set Scope mode */
   if (params->AcqMode == ACQMODE_MIXED)
     ret |= CAEN_DGTZ_WriteRegister(handle, 0x8004, 0x00010000);         
@@ -2342,45 +2343,52 @@ int setup_acquisition(char *fname) {
       ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_USB, gParams.ConnectionLinkNum, gParams.ConnectionConetNode, gParams.ConnectionVMEBaseAddress, &gHandle);
     if (gParams.ConnectionType == CONNECTION_TYPE_OPT)
       ret = CAEN_DGTZ_OpenDigitizer(CAEN_DGTZ_OpticalLink, gParams.ConnectionLinkNum, gParams.ConnectionConetNode, gParams.ConnectionVMEBaseAddress, &gHandle);
+    if (gParams.ConnectionType == CONNECTION_TYPE_USB_A4818){
+      printf("Trying A4818 connection\n");
+      ret = CAEN_DGTZ_OpenDigitizer2(CAEN_DGTZ_USB_A4818, (void*) &gParams.ConnectionLinkNum, gParams.ConnectionConetNode, gParams.ConnectionVMEBaseAddress, &gHandle);
+    }
     if(ret != CAEN_DGTZ_Success) {
       printf("Can't open digitizer\n");
       return -1;
     }
+    else printf("Opened digitizer successfully\n");
   }
   
   /* Check board type */    
   ret = CAEN_DGTZ_GetInfo(gHandle, &gBoardInfo);
-  
+  // printf("Alternate roC version %s\n",gBoardInfo.ROC_FirmwareRel);
   /* Patch to handle ModelName which is not decoded by CAENDigitizer library <= 2.6.7 */
-  CAEN_DGTZ_ReadRegister(gHandle, 0xF030, &rom_version);
-  if((rom_version & 0xFF) == 0x54) 
-  {
-    CAEN_DGTZ_ReadRegister(gHandle, 0xF034, &rom_board_id);
-    switch (rom_board_id) 
-    {
-      case 0:
-        sprintf(gBoardInfo.ModelName, "V1740D");
-        break;
-      case 1: 
-        sprintf(gBoardInfo.ModelName, "VX1740D");
-        break;
-      case 2: 
-        sprintf(gBoardInfo.ModelName,"DT5740D");
-        break;
-      case 3: 
-        sprintf(gBoardInfo.ModelName,"N6740D");
-        break;
-      default: 
-        break;
-    }
-  }
-  else
-  {
-    printf("This software is not appropriate for module %s\n", gBoardInfo.ModelName);
-    printf("Press any key to exit!\n");
-    getch();
-    exit(0);
-  }
+  // CAEN_DGTZ_ReadRegister(gHandle, 0xF030, &rom_version);
+  // printf("trying rom version\n");
+  // printf("Rom version %s\n",rom_version);
+  // if((rom_version & 0xFF) == 0x54) 
+  // {
+  //   CAEN_DGTZ_ReadRegister(gHandle, 0xF034, &rom_board_id);
+  //   switch (rom_board_id) 
+  //   {
+  //     case 0:
+  //       sprintf(gBoardInfo.ModelName, "V1740D");
+  //       break;
+  //     case 1: 
+  //       sprintf(gBoardInfo.ModelName, "VX1740D");
+  //       break;
+  //     case 2: 
+  //       sprintf(gBoardInfo.ModelName,"DT5740D");
+  //       break;
+  //     case 3: 
+  //       sprintf(gBoardInfo.ModelName,"N6740D");
+  //       break;
+  //     default: 
+  //       break;
+  //   }
+  // }
+  // else
+  // {
+  //   printf("This software is not appropriate for module %s\n", gBoardInfo.ModelName);
+  //   printf("Press any key to exit!\n");
+  //   getch();
+  //   exit(0);
+  // }
   
   
   printf("\nConnected to CAEN Digitizer Model %s\n", gBoardInfo.ModelName);
@@ -2393,10 +2401,12 @@ int setup_acquisition(char *fname) {
   gActiveChannel = gParams.ActiveChannel;
   if (gActiveChannel >= gEquippedChannels)
     gActiveChannel = gEquippedChannels-1;
-  
+  printf("calling SWStopAcquisition\n");
   ret = CAEN_DGTZ_SWStopAcquisition(gHandle);
-  
+  printf("ret %s\n calling configure_digitizer\n",ret);
+
   ret = configure_digitizer(gHandle, gEquippedGroups, &gParams);
+  printf("ret %s\n",ret);
   if (ret)  {
     printf("Error during charge digitizer configuration\n");
     return -1;
